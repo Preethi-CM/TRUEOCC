@@ -3,7 +3,7 @@
 // Place this file at: C:\xampp\htdocs\trueocc\sw.js
 // ============================================================
 
-const APP_VERSION  = 'trueocc-v1.0.7';
+const APP_VERSION  = 'trueocc-v1.0.8';
 const CACHE_STATIC = `${APP_VERSION}-static`;
 const CACHE_PAGES  = `${APP_VERSION}-pages`;
 const CACHE_API    = `${APP_VERSION}-api`;
