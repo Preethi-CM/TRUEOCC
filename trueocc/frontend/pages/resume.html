@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Resume – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="container page">
+  <div class="sidebar-left">
+    <div class="sticky-top">
+      <div class="card card-sm">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:12px;">Resume</div>
+        <div>
+          <button class="btn btn-ghost btn-full" id="tab-create-btn" onclick="showTab('create',this)" style="justify-content:flex-start;border-radius:var(--r-sm);margin-bottom:4px;font-size:14px;"><i class="fas fa-edit" style="width:18px;"></i> Create Resume</button>
+          <button class="btn btn-ghost btn-full" id="tab-upload-btn" onclick="showTab('upload',this)" style="justify-content:flex-start;border-radius:var(--r-sm);margin-bottom:4px;font-size:14px;"><i class="fas fa-upload" style="width:18px;"></i> Upload PDF</button>
+          <button class="btn btn-ghost btn-full" id="tab-view-btn" onclick="showTab('view',this)" style="justify-content:flex-start;border-radius:var(--r-sm);font-size:14px;"><i class="fas fa-eye" style="width:18px;"></i> Preview</button>
+        </div>
+        <hr class="divider">
+        <a href="user-dashboard.html" style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;padding:8px 0;"><i class="fas fa-arrow-left"></i> Dashboard</a>
+      </div>
+      <div class="card card-sm" style="margin-top:14px;" id="status-card">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:10px;">Status</div>
+        <div id="status-body">Loading...</div>
+      </div>
+      <div class="card card-sm" style="margin-top:14px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:10px;">💡 Tips</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8;">• Skills: React, Python, SQL<br>• Match job description keywords<br>• Use action verbs in experience<br>• Quantify achievements<br>• Keep it 1–2 pages</div>
+      </div>
+    </div>
+    <div>
+      <div id="tab-create">
+        <div class="card">
+          <div class="card-header"><h2 class="card-title"><i class="fas fa-edit" style="color:var(--primary);"></i> Resume Builder</h2><span class="badge b-blue"><i class="fas fa-robot"></i> AI Matching</span></div>
+          <div class="alert a-info"><i class="fas fa-lightbulb"></i> Your skills drive AI job matching and your Job Fit Score!</div>
+          <div class="g2">
+            <div class="fg"><label class="label">Full Name *</label><input type="text" id="r-name" class="input" placeholder="John Doe"></div>
+            <div class="fg"><label class="label">Email *</label><input type="email" id="r-email" class="input" placeholder="john@example.com"></div>
+          </div>
+          <div class="g2">
+            <div class="fg"><label class="label">Phone</label><input type="tel" id="r-phone" class="input" placeholder="+91 9876543210"></div>
+            <div class="fg"><label class="label">Location</label><input type="text" id="r-location" class="input" placeholder="Bangalore, India"></div>
+          </div>
+          <div class="fg">
+            <label class="label">Skills * <span style="font-weight:400;color:var(--muted);">(comma separated)</span></label>
+            <input type="text" id="r-skills" class="input" placeholder="React, JavaScript, Python, SQL..." oninput="previewSkills()">
+            <div id="skills-chips" style="margin-top:6px;"></div>
+          </div>
+          <div class="fg"><label class="label">Professional Summary</label><textarea id="r-summary" class="textarea" placeholder="3-4 sentences about your expertise and goals..." style="min-height:90px;"></textarea></div>
+          <div class="fg"><label class="label">Education</label><textarea id="r-education" class="textarea" placeholder="B.Tech Computer Science – XYZ University (2020–2024)&#10;GPA: 8.5/10"></textarea></div>
+          <div class="fg"><label class="label">Work Experience</label><textarea id="r-experience" class="textarea" placeholder="Software Engineer – ABC Corp (Jan 2023–Present)&#10;• Built RESTful APIs serving 10K+ daily requests&#10;• Reduced load time by 40%"></textarea></div>
+          <div class="fg"><label class="label">Projects</label><textarea id="r-projects" class="textarea" placeholder="E-Commerce Platform (React, Node.js, MongoDB)&#10;• Full-stack app with payment integration&#10;• 500+ active users"></textarea></div>
+          <div class="g2">
+            <div class="fg"><label class="label">LinkedIn URL</label><input type="url" id="r-linkedin" class="input" placeholder="linkedin.com/in/johndoe"></div>
+            <div class="fg"><label class="label">GitHub URL</label><input type="url" id="r-github" class="input" placeholder="github.com/johndoe"></div>
+          </div>
+          <button class="btn btn-grad btn-lg" id="save-btn" onclick="saveResume()"><i class="fas fa-save"></i> Save Resume</button>
+        </div>
+      </div>
+      <div id="tab-upload" style="display:none;">
+        <div class="card">
+          <div class="card-header"><h2 class="card-title"><i class="fas fa-upload" style="color:var(--primary);"></i> Upload Resume</h2></div>
+          <div class="alert a-info"><i class="fas fa-info-circle"></i> Upload PDF + add skills for AI matching.</div>
+          <div class="file-drop" id="drop" onclick="document.getElementById('file-inp').click()">
+            <div style="font-size:42px;color:var(--light);margin-bottom:10px;" id="drop-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+            <div style="font-weight:600;margin-bottom:4px;" id="drop-title">Click to upload or drag & drop</div>
+            <div style="font-size:13px;color:var(--muted);" id="drop-sub">PDF files only · Max 5MB</div>
+            <input type="file" id="file-inp" accept=".pdf" onchange="fileSelected(this)">
+          </div>
+          <div id="file-ok" class="alert a-success" style="display:none;margin-top:12px;"></div>
+          <div class="fg" style="margin-top:16px;">
+            <label class="label">Your Skills * <span style="font-weight:400;color:var(--muted);">(for AI matching)</span></label>
+            <input type="text" id="upload-skills" class="input" placeholder="React, Node.js, Python, SQL...">
+          </div>
+          <button class="btn btn-grad btn-lg" id="upload-btn" onclick="uploadResume()"><i class="fas fa-cloud-upload-alt"></i> Save Upload</button>
+        </div>
+      </div>
+      <div id="tab-view" style="display:none;" id="tab-view"><div id="preview-content"></div></div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let selectedFile = null;
+
+async function init() {
+  const d = await checkAuth('seeker');
+  if (!d) return;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+  loadNotifs();
+  showTab('create', document.getElementById('tab-create-btn'));
+  loadResume();
+  if (window.location.hash === '#upload') showTab('upload', document.getElementById('tab-upload-btn'));
+}
+
+async function loadResume() {
+  const res = await API.get('user.php','get_resume');
+  if (res.success) { fillForm(res.data.resume); updateStatus(res.data.resume); }
+  else updateStatus(null);
+}
+
+function fillForm(r) {
+  const f = {'r-name':'full_name','r-email':'email','r-phone':'phone','r-location':'location','r-skills':'skills','r-summary':'summary','r-education':'education','r-experience':'experience','r-projects':'projects','r-linkedin':'linkedin_url','r-github':'github_url'};
+  Object.entries(f).forEach(([id,key]) => { const el=document.getElementById(id); if(el&&r[key]) el.value=r[key]; });
+  if (r.skills) previewSkills();
+  if (r.resume_type==='uploaded') document.getElementById('upload-skills').value = r.skills||'';
+}
+
+function previewSkills() {
+  const skills = document.getElementById('r-skills')?.value.split(',').map(s=>s.trim()).filter(Boolean)||[];
+  const el = document.getElementById('skills-chips');
+  if (el) el.innerHTML = skills.map(s=>`<span class="chip">${s}</span>`).join('');
+}
+
+function updateStatus(r) {
+  const el = document.getElementById('status-body');
+  if (!r) { el.innerHTML = `<span class="badge b-red"><i class="fas fa-times"></i> Not Available</span><div style="font-size:12px;color:var(--muted);margin-top:8px;">Create or upload resume to apply for jobs.</div>`; return; }
+  const cnt = (r.skills||'').split(',').filter(Boolean).length;
+  el.innerHTML = `<span class="badge b-green"><i class="fas fa-check"></i> ${r.resume_type==='uploaded'?'Uploaded':'Created'}</span>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">${cnt} skills · Updated ${fmtDate(r.updated_at)}</div>
+    ${r.uploaded_file?`<div style="font-size:12px;color:var(--primary);margin-top:4px;"><i class="fas fa-file-pdf"></i> ${r.uploaded_file}</div>`:''}`;
+}
+
+function showTab(tab, btn) {
+  ['create','upload','view'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display = t===tab?'block':'none';
+    const b = document.getElementById('tab-'+t+'-btn');
+    if (b) { b.style.background = t===tab?'var(--primary-l)':''; b.style.color = t===tab?'var(--primary)':''; }
+  });
+  if (tab==='view') renderPreview();
+}
+
+async function saveResume() {
+  const name=document.getElementById('r-name').value.trim(), email=document.getElementById('r-email').value.trim(), skills=document.getElementById('r-skills').value.trim();
+  if (!name||!email||!skills) { toast('Name, email and skills are required.','error'); return; }
+  const btn=document.getElementById('save-btn'); setLoading(btn,true,'Saving...');
+  const fd = new FormData();
+  const fields = {full_name:name,email,skills,phone:document.getElementById('r-phone').value,location:document.getElementById('r-location').value,summary:document.getElementById('r-summary').value,education:document.getElementById('r-education').value,experience:document.getElementById('r-experience').value,projects:document.getElementById('r-projects').value,linkedin_url:document.getElementById('r-linkedin').value,github_url:document.getElementById('r-github').value};
+  Object.entries(fields).forEach(([k,v])=>fd.append(k,v));
+  const res = await API.postForm('user.php','save_resume',fd);
+  setLoading(btn,false);
+  if (res.success) { toast('Resume saved! Job matching updated. ✅','success'); updateStatus(res.data.resume); }
+  else toast(res.message,'error');
+}
+
+function fileSelected(inp) {
+  selectedFile = inp.files[0];
+  if (!selectedFile) return;
+  document.getElementById('drop-icon').innerHTML = '<i class="fas fa-file-pdf" style="color:var(--danger);"></i>';
+  document.getElementById('drop-title').textContent = selectedFile.name;
+  document.getElementById('drop-sub').textContent = Math.round(selectedFile.size/1024) + ' KB · PDF';
+  document.getElementById('drop').style.borderColor = 'var(--success)';
+  document.getElementById('drop').style.background = '#E8F5E9';
+  const ok = document.getElementById('file-ok');
+  ok.style.display='flex'; ok.innerHTML=`<i class="fas fa-check-circle"></i> ${selectedFile.name} ready to upload`;
+}
+
+async function uploadResume() {
+  if (!selectedFile) { toast('Select a PDF file first.','error'); return; }
+  const skills = document.getElementById('upload-skills').value.trim();
+  if (!skills) { toast('Skills are required for job matching.','error'); return; }
+  const btn=document.getElementById('upload-btn'); setLoading(btn,true,'Uploading...');
+  const fd = new FormData(); fd.append('resume',selectedFile); fd.append('skills',skills);
+  const res = await API.postForm('user.php','upload_resume',fd);
+  setLoading(btn,false);
+  if (res.success) { toast('Resume uploaded successfully! ✅','success'); updateStatus({resume_type:'uploaded',uploaded_file:res.data.filename,skills,updated_at:new Date()}); }
+  else toast(res.message,'error');
+}
+
+async function renderPreview() {
+  const res = await API.get('user.php','get_resume');
+  const el = document.getElementById('preview-content');
+  if (!res.success) { el.innerHTML=`<div class="card"><div class="empty"><div class="empty-icon">📄</div><div class="empty-title">No Resume</div><button class="btn btn-primary" onclick="showTab('create',document.getElementById('tab-create-btn'))">Create Now</button></div></div>`; return; }
+  const r = res.data.resume;
+  const skills = (r.skills||'').split(',').map(s=>s.trim()).filter(Boolean);
+  el.innerHTML = `<div class="card fade-in">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:4px;">${r.full_name||'—'}</h1>
+        <div style="color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;font-size:14px;">
+          ${r.email?`<span><i class="fas fa-envelope"></i> ${r.email}</span>`:''}
+          ${r.phone?`<span><i class="fas fa-phone"></i> ${r.phone}</span>`:''}
+          ${r.location?`<span><i class="fas fa-map-marker-alt"></i> ${r.location}</span>`:''}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+          ${r.linkedin_url?`<a href="https://${r.linkedin_url}" target="_blank" class="btn btn-ghost btn-sm"><i class="fab fa-linkedin"></i> LinkedIn</a>`:''}
+          ${r.github_url?`<a href="https://${r.github_url}" target="_blank" class="btn btn-ghost btn-sm"><i class="fab fa-github"></i> GitHub</a>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="showTab('create',document.getElementById('tab-create-btn'))"><i class="fas fa-edit"></i> Edit</button>
+        <span class="badge ${r.resume_type==='uploaded'?'b-orange':'b-green'}">${r.resume_type==='uploaded'?'📎 Uploaded':'✍️ Created'}</span>
+      </div>
+    </div>
+    ${r.summary?`<div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);"><div class="label" style="margin-bottom:8px;"><i class="fas fa-user" style="color:var(--primary);"></i> Summary</div><p style="color:var(--muted);line-height:1.7;">${r.summary}</p></div>`:''}
+    <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+      <div class="label" style="margin-bottom:10px;"><i class="fas fa-code" style="color:var(--primary);"></i> Skills (${skills.length})</div>
+      <div>${skills.map(s=>`<span class="chip">${s}</span>`).join('')}</div>
+    </div>
+    ${r.education?`<div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);"><div class="label" style="margin-bottom:8px;"><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Education</div><pre style="font-family:'DM Sans',sans-serif;white-space:pre-wrap;font-size:14px;color:var(--muted);line-height:1.7;">${r.education}</pre></div>`:''}
+    ${r.experience?`<div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);"><div class="label" style="margin-bottom:8px;"><i class="fas fa-briefcase" style="color:var(--primary);"></i> Experience</div><pre style="font-family:'DM Sans',sans-serif;white-space:pre-wrap;font-size:14px;color:var(--muted);line-height:1.7;">${r.experience}</pre></div>`:''}
+    ${r.projects?`<div><div class="label" style="margin-bottom:8px;"><i class="fas fa-rocket" style="color:var(--primary);"></i> Projects</div><pre style="font-family:'DM Sans',sans-serif;white-space:pre-wrap;font-size:14px;color:var(--muted);line-height:1.7;">${r.projects}</pre></div>`:''}
+    ${r.uploaded_file?`<div class="alert a-info" style="margin-top:16px;"><i class="fas fa-file-pdf"></i> PDF: <strong>${r.uploaded_file}</strong>  <a href="../../backend/uploads/resumes/${r.uploaded_file}" target="_blank" class="btn btn-outline btn-sm" style="margin-left:8px;"><i class="fas fa-download"></i> View</a></div>`:''}
+  </div>`;
+}
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign Up – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div class="auth-page">
+  <div class="auth-left">
+    <div class="auth-inner">
+      <div class="auth-logo">TrueOcc</div>
+      <p class="auth-tag">Join thousands finding their dream jobs with AI-powered matching.</p>
+      <div class="auth-feat"><i class="fas fa-check-circle"></i><span>Free resume builder + skill extraction</span></div>
+      <div class="auth-feat"><i class="fas fa-check-circle"></i><span>AI-powered job recommendations + email alerts</span></div>
+      <div class="auth-feat"><i class="fas fa-check-circle"></i><span>Voice mock interview with Gemini AI</span></div>
+      <div class="auth-feat"><i class="fas fa-check-circle"></i><span>Aptitude test in 4 categories</span></div>
+    </div>
+  </div>
+  <div class="auth-right">
+    <div class="auth-form">
+      <h1 class="auth-title">Create Account ✨</h1>
+      <p class="auth-sub">Start your AI-powered career journey</p>
+      <div id="err" class="alert a-error" style="display:none;"></div>
+      <div id="ok" class="alert a-success" style="display:none;"></div>
+      <div class="fg">
+        <div class="label">I am a</div>
+        <div class="role-tabs">
+          <div class="role-tab active" data-role="seeker" onclick="setRole('seeker',this)"><i class="fas fa-user"></i><span>Job Seeker</span></div>
+          <div class="role-tab" data-role="employer" onclick="setRole('employer',this)"><i class="fas fa-building"></i><span>Employer / HR</span></div>
+        </div>
+      </div>
+      <div class="fg"><label class="label">Full Name *</label><input type="text" id="name" class="input" placeholder="John Doe"></div>
+      <div class="fg"><label class="label">Email *</label><input type="email" id="email" class="input" placeholder="john@example.com"></div>
+      <div class="g2" style="gap:14px;">
+        <div class="fg"><label class="label">Password *</label><input type="password" id="pass" class="input" placeholder="Min 6 chars"></div>
+        <div class="fg"><label class="label">Confirm *</label><input type="password" id="confirm" class="input" placeholder="Repeat"></div>
+      </div>
+      <button class="btn btn-grad btn-full btn-lg" id="signup-btn" onclick="doSignup()"><i class="fas fa-user-plus"></i> Create Account</button>
+      <hr class="divider">
+      <p style="text-align:center;color:var(--muted);font-size:14px;">Have account? <a href="login.html" style="color:var(--primary);font-weight:600;">Sign in</a></p>
+    </div>
+  </div>
+</div>
+<script src="../js/main.js"></script>
+<script>
+let role = 'seeker';
+function setRole(r, el) { role = r; document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active')); el.classList.add('active'); }
+async function doSignup() {
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const pass = document.getElementById('pass').value;
+  const confirm = document.getElementById('confirm').value;
+  const err = document.getElementById('err'); err.style.display='none';
+  if (!name||!email||!pass||!confirm) { err.innerHTML='<i class="fas fa-exclamation-circle"></i> Fill all fields.'; err.style.display='flex'; return; }
+  if (pass.length < 6) { err.innerHTML='<i class="fas fa-exclamation-circle"></i> Password min 6 chars.'; err.style.display='flex'; return; }
+  if (pass !== confirm) { err.innerHTML='<i class="fas fa-exclamation-circle"></i> Passwords do not match.'; err.style.display='flex'; return; }
+  const btn = document.getElementById('signup-btn'); setLoading(btn,true,'Creating...');
+  const res = await API.post('auth.php','signup',{name,email,password:pass,confirm_password:confirm,role});
+  setLoading(btn,false);
+  if (res.success) { document.getElementById('ok').innerHTML='<i class="fas fa-check-circle"></i> Account created! Redirecting...'; document.getElementById('ok').style.display='flex'; setTimeout(()=>window.location.href=res.data.redirect,800); }
+  else { const msgs=res.errors?.length?res.errors.join('<br>'):res.message; err.innerHTML=`<i class="fas fa-exclamation-circle"></i> ${msgs}`; err.style.display='flex'; }
+}
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

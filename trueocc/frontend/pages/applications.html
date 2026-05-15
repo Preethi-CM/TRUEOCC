@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Applications – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="container page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <h1 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;">📋 My Applications</h1>
+    <a href="jobs.html" class="btn btn-grad"><i class="fas fa-search"></i> Find More Jobs</a>
+  </div>
+  <div class="g4" id="stats" style="margin-bottom:24px;"></div>
+  <div class="tabs" id="ftabs">
+    <button class="tab active" onclick="filterStatus('all',this)">All <span id="cnt-all" class="badge b-gray" style="margin-left:4px;">0</span></button>
+    <button class="tab" onclick="filterStatus('Applied',this)">Applied <span id="cnt-Applied" class="badge b-blue" style="margin-left:4px;">0</span></button>
+    <button class="tab" onclick="filterStatus('Shortlisted',this)">Shortlisted <span id="cnt-Shortlisted" class="badge b-yellow" style="margin-left:4px;">0</span></button>
+    <button class="tab" onclick="filterStatus('Interview',this)">Interview <span id="cnt-Interview" class="badge b-blue" style="margin-left:4px;">0</span></button>
+    <button class="tab" onclick="filterStatus('Hired',this)">Hired <span id="cnt-Hired" class="badge b-green" style="margin-left:4px;">0</span></button>
+    <button class="tab" onclick="filterStatus('Rejected',this)">Rejected <span id="cnt-Rejected" class="badge b-red" style="margin-left:4px;">0</span></button>
+  </div>
+  <div id="apps-list"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let allApps = [], currentFilter = 'all';
+
+async function init() {
+  const d = await checkAuth('seeker');
+  if (!d) return;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+  loadNotifs();
+  const res = await API.get('jobs.php','my_applications');
+  allApps = res.data?.applications || [];
+  renderStats(); renderApps();
+}
+
+function renderStats() {
+  const cnts = {Applied:0,Shortlisted:0,Interview:0,Hired:0,Rejected:0};
+  allApps.forEach(a=>{ if(cnts[a.status]!==undefined) cnts[a.status]++; });
+  document.getElementById('cnt-all').textContent = allApps.length;
+  Object.keys(cnts).forEach(k=>{ const el=document.getElementById('cnt-'+k); if(el) el.textContent=cnts[k]; });
+  document.getElementById('stats').innerHTML = [
+    {icon:'fa-paper-plane',bg:'#E3F2FD',ic:'var(--primary)',val:allApps.length,lbl:'Total'},
+    {icon:'fa-star',bg:'#FFF8E1',ic:'#F57F17',val:cnts.Shortlisted,lbl:'Shortlisted'},
+    {icon:'fa-microphone',bg:'#F3E5F5',ic:'#6A1B9A',val:cnts.Interview,lbl:'Interviews'},
+    {icon:'fa-check-circle',bg:'#E8F5E9',ic:'var(--success)',val:cnts.Hired,lbl:'Hired'},
+  ].map(s=>`<div class="stat-card"><div class="stat-icon" style="background:${s.bg};"><i class="fas ${s.icon}" style="color:${s.ic};"></i></div><div><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div></div>`).join('');
+}
+
+function filterStatus(status, btn) {
+  currentFilter = status;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderApps();
+}
+
+function renderApps() {
+  const filtered = currentFilter==='all' ? allApps : allApps.filter(a=>a.status===currentFilter);
+  const el = document.getElementById('apps-list');
+  if (!filtered.length) {
+    el.innerHTML = `<div class="card"><div class="empty"><div class="empty-icon">📭</div><div class="empty-title">${currentFilter==='all'?'No Applications Yet':'No '+currentFilter+' Applications'}</div><div style="font-size:14px;color:var(--muted);">${currentFilter==='all'?'Apply to jobs to track them here.':'Check other tabs.'}</div><a href="jobs.html" class="btn btn-grad" style="margin-top:16px;"><i class="fas fa-search"></i> Browse Jobs</a></div></div>`;
+    return;
+  }
+  const steps = ['Applied','Shortlisted','Interview','Hired'];
+  el.innerHTML = filtered.map(app=>{
+    const si = steps.indexOf(app.status);
+    const isRej = app.status === 'Rejected';
+    return `<div class="card fade-in" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div class="co-logo" style="width:56px;height:56px;font-size:22px;background:${coBg(app.company)};flex-shrink:0;">${(app.company||'?')[0]}</div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:17px;font-weight:700;margin-bottom:4px;">${app.job_title}</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;color:var(--muted);">
+            <span><i class="fas fa-building"></i> ${app.company}</span>
+            <span><i class="fas fa-map-marker-alt"></i> ${app.location}</span>
+            <span><i class="fas fa-clock"></i> ${app.job_type}</span>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            ${statusBadge(app.status)}
+            ${app.match_percentage>0?`<span class="badge b-blue"><i class="fas fa-bullseye"></i> ${app.match_percentage}% Match</span>`:''}
+            <span style="font-size:12px;color:var(--light);"><i class="fas fa-calendar"></i> ${fmtDate(app.applied_at)}</span>
+          </div>
+        </div>
+        <a href="job-detail.html?id=${app.job_id}" class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i> View Job</a>
+      </div>
+      ${!isRej ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:14px;">Progress</div>
+        <div style="display:flex;align-items:center;">
+          ${steps.map((step,i)=>`<div style="display:flex;align-items:center;flex:1;">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <div style="width:34px;height:34px;border-radius:50%;background:${i<=si?'var(--primary)':'var(--border)'};display:flex;align-items:center;justify-content:center;color:${i<=si?'white':'var(--muted)'};font-size:14px;${i===si?'box-shadow:0 0 0 4px rgba(10,102,194,0.15);':''}">
+                ${i<=si&&i!==si?'<i class="fas fa-check"></i>':i===si?'<i class="fas fa-circle" style="font-size:8px;"></i>':i+1}
+              </div>
+              <div style="font-size:11px;margin-top:6px;font-weight:${i===si?'700':'400'};color:${i<=si?'var(--primary)':'var(--muted)'};">${step}</div>
+            </div>
+            ${i<steps.length-1?`<div style="flex:1;height:2px;background:${i<si?'var(--primary)':'var(--border)'};margin:0 4px;margin-bottom:18px;transition:all 0.3s;"></div>`:''}
+          </div>`).join('')}
+        </div>
+      </div>` : `<div class="alert a-error" style="margin-top:16px;"><i class="fas fa-times-circle"></i> <div><strong>Application Not Selected</strong>${app.employer_note?`<br><em>${app.employer_note}</em>`:'<br>Keep applying — the right role is out there!'}</div></div>`}
+    </div>`;
+  }).join('');
+}
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

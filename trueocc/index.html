@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>True Occupation – AI-Powered Job Portal</title>
+<link rel="stylesheet" href="frontend/css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+body{background:var(--surface);}
+.hero{padding:100px 0 80px;text-align:center;background:linear-gradient(180deg,var(--primary-l) 0%,var(--surface) 100%);}
+.hero-title{font-family:'Syne',sans-serif;font-size:58px;font-weight:800;line-height:1.1;margin-bottom:20px;}
+.hero-title .hl{color:var(--primary);}
+.hero-sub{font-size:20px;color:var(--muted);max-width:620px;margin:0 auto 40px;line-height:1.6;}
+.feats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+.feat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:28px;transition:var(--t);text-align:center;}
+.feat:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--primary);}
+.feat-icon{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;}
+.stats-bar{background:var(--primary);color:white;padding:40px 0;}
+.stats-inner{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;text-align:center;}
+.snum{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;margin-bottom:6px;}
+@media(max-width:768px){.feats-grid{grid-template-columns:1fr;}.stats-inner{grid-template-columns:repeat(2,1fr);}.hero-title{font-size:36px;}}
+</style>  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<nav class="nav">
+  <div class="wrap">
+    <a href="index.html" class="nav-brand">True<span>Occ</span></a>
+    <div class="nav-links"><a href="frontend/pages/jobs.html"><i class="fas fa-briefcase"></i> Browse Jobs</a></div>
+    <div class="nav-right">
+      <a href="frontend/pages/login.html" class="btn btn-ghost btn-sm">Sign In</a>
+      <a href="frontend/pages/signup.html" class="btn btn-grad btn-sm">Get Started Free</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-title">Find Your <span class="hl">True</span> Occupation<br>with <span class="hl">AI</span> Intelligence</div>
+    <p class="hero-sub">Resume-based job matching · Gemini AI mock interviews · Voice input · Aptitude tests · Email notifications · Verified employers</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+      <a href="frontend/pages/signup.html" class="btn btn-grad btn-lg"><i class="fas fa-rocket"></i> Start for Free</a>
+      <a href="frontend/pages/jobs.html" class="btn btn-outline btn-lg"><i class="fas fa-search"></i> Browse Jobs</a>
+    </div>
+  </div>
+</section>
+
+<div class="stats-bar"><div class="container"><div class="stats-inner">
+  <div><div class="snum">10K+</div><div style="opacity:0.8;font-size:14px;">Active Jobs</div></div>
+  <div><div class="snum">50K+</div><div style="opacity:0.8;font-size:14px;">Job Seekers</div></div>
+  <div><div class="snum">2K+</div><div style="opacity:0.8;font-size:14px;">Employers</div></div>
+  <div><div class="snum">95%</div><div style="opacity:0.8;font-size:14px;">Placement Rate</div></div>
+</div></div></div>
+
+<section style="padding:80px 0;background:var(--bg);">
+  <div class="container">
+    <h2 style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;text-align:center;margin-bottom:40px;">Everything You Need to Land Your Dream Job</h2>
+    <div class="feats-grid">
+      ${[
+        {bg:'#E3F2FD',ic:'#1565C0',icon:'fa-brain',t:'AI Job Matching',d:'Resume skills matched against jobs with percentage scores. Get email alerts for new matches.'},
+        {bg:'#E8F5E9',ic:'#2E7D32',icon:'fa-file-alt',t:'Smart Resume Builder',d:'Build or upload PDF resume. Skills extracted for AI matching and readiness scoring.'},
+        {bg:'#F3E5F5',ic:'#6A1B9A',icon:'fa-microphone',t:'Voice Mock Interview',d:'Speak your answers via microphone. Gemini AI evaluates with ratings, scores, and coaching.'},
+        {bg:'#FFF3E0',ic:'#E65100',icon:'fa-clipboard-list',t:'4-Category Aptitude Test',d:'Numerical, Logical, Verbal & Coding. Timed tests with detailed answer reviews.'},
+        {bg:'#E0F7FA',ic:'#00695C',icon:'fa-envelope',t:'Email Notifications',d:'Automated emails: application received, status updates, and personalized job recommendations.'},
+        {bg:'#FCE4EC',ic:'#AD1457',icon:'fa-shield-alt',t:'Verified Employers',d:'Admin-verified companies with document uploads. Employers can add custom interview questions.'},
+      ].map(f=>`<div class="feat">
+        <div class="feat-icon" style="background:${f.bg};"><i class="fas ${f.icon}" style="color:${f.ic};"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">${f.t}</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">${f.d}</p>
+      </div>`).join('')}
+    </div>
+  </div>
+</section>
+
+<section style="padding:80px 0;text-align:center;">
+  <div class="container">
+    <h2 style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;margin-bottom:16px;">Ready to Start?</h2>
+    <p style="color:var(--muted);font-size:18px;margin-bottom:32px;">Join thousands finding their true occupation with AI.</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+      <a href="frontend/pages/signup.html?role=seeker" class="btn btn-grad btn-lg"><i class="fas fa-user"></i> I'm a Job Seeker</a>
+      <a href="frontend/pages/signup.html?role=employer" class="btn btn-outline btn-lg"><i class="fas fa-building"></i> I'm an Employer</a>
+    </div>
+  </div>
+</section>
+
+<footer style="background:#0f172a;color:rgba(255,255,255,0.6);padding:40px 0;text-align:center;font-size:14px;">
+  <div class="container">
+    <div style="font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:white;margin-bottom:8px;">TrueOcc</div>
+    <p>© 2024 True Occupation. PHP + MySQL + Gemini AI + Voice API</p>
+    <div style="margin-top:12px;"><a href="frontend/pages/admin-login.html" style="color:rgba(255,255,255,0.25);font-size:12px;">Admin Login</a></div>
+  </div>
+</footer>
+<script src="frontend/js/main.js"></script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

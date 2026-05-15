@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrueOcc PWA – Setup & Testing Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6;padding-bottom:60px}
+.hero{background:linear-gradient(135deg,#0A66C2 0%,#1e3a5f 100%);padding:48px 24px;text-align:center}
+.hero h1{font-size:2rem;font-weight:700;margin-bottom:8px;color:#fff}
+.hero p{color:rgba(255,255,255,.8);font-size:1rem;max-width:560px;margin:0 auto}
+.wrap{max-width:860px;margin:0 auto;padding:0 20px}
+h2{font-size:1.2rem;font-weight:700;color:#f1f5f9;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.num{width:28px;height:28px;border-radius:50%;background:#0A66C2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.section{margin:32px 0}
+.card{background:#1e293b;border:0.5px solid #334155;border-radius:12px;padding:20px;margin-bottom:12px}
+.card-title{font-weight:600;font-size:.95rem;margin-bottom:8px;color:#f8fafc}
+.card p,.card li{font-size:.875rem;color:#94a3b8;line-height:1.7}
+ul{padding-left:20px}
+li{margin-bottom:4px}
+code{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:#0f172a;border:0.5px solid #334155;padding:1px 7px;border-radius:4px;color:#a5f3fc}
+pre{font-family:'JetBrains Mono',monospace;font-size:.82rem;background:#0f172a;border:0.5px solid #334155;border-radius:10px;padding:16px;overflow-x:auto;margin:12px 0;line-height:1.8;color:#a5f3fc}
+.label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin:24px 0 8px;display:block}
+.step{display:flex;gap:12px;padding:12px 0;border-bottom:0.5px solid #1e293b}
+.step:last-child{border-bottom:none}
+.sdot{width:24px;height:24px;border-radius:50%;background:#0ea5e9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-top:2px}
+.step-body{font-size:.875rem;color:#94a3b8;flex:1}
+.step-body strong{color:#f1f5f9}
+.ok{color:#4ade80}
+.warn{color:#fbbf24}
+.err{color:#f87171}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:10px;font-size:.72rem;font-weight:700}
+.b-blue{background:#1e3a5f;color:#7dd3fc}
+.b-green{background:#14532d;color:#86efac}
+.b-warn{background:#713f12;color:#fcd34d}
+.struct{font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:2;color:#e2e8f0}
+.struct .dir{color:#7dd3fc;font-weight:700}
+.struct .file{color:#a5f3fc}
+.struct .new{color:#86efac;font-weight:600}
+.struct .mod{color:#fcd34d}
+.struct .note{color:#475569;font-size:.72rem}
+.divider{border:none;border-top:0.5px solid #1e293b;margin:28px 0}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>📱 TrueOcc PWA Setup & Testing Guide</h1>
+  <p>Complete guide to run, verify, and install TrueOcc as a Progressive Web App on any device</p>
+</div>
+
+<div class="wrap">
+
+<!-- STRUCTURE -->
+<div class="section">
+  <span class="label">Project Structure</span>
+  <h2><span class="num">📁</span> Files Added & Modified</h2>
+  <div class="card">
+    <pre class="struct"><span class="dir">trueocc/</span>
+├── <span class="new">manifest.json</span>          <span class="note">← NEW — PWA app identity & icons</span>
+├── <span class="new">sw.js</span>                  <span class="note">← NEW — Service Worker (caching + offline)</span>
+├── <span class="new">offline.html</span>           <span class="note">← NEW — Shown when no internet</span>
+├── <span class="mod">index.html</span>             <span class="note">← MODIFIED — added PWA meta tags</span>
+├── backend/               <span class="note">← UNTOUCHED</span>
+├── database/              <span class="note">← UNTOUCHED</span>
+└── frontend/
+    ├── css/main.css       <span class="note">← UNTOUCHED</span>
+    ├── <span class="new">icons/</span>             <span class="note">← NEW — App icons (SVG, all sizes)</span>
+    │   ├── <span class="new">icon-72x72.svg</span>
+    │   ├── <span class="new">icon-96x96.svg</span>
+    │   ├── <span class="new">icon-128x128.svg</span>
+    │   ├── <span class="new">icon-144x144.svg</span>
+    │   ├── <span class="new">icon-152x152.svg</span>
+    │   ├── <span class="new">icon-192x192.svg</span>
+    │   ├── <span class="new">icon-384x384.svg</span>
+    │   └── <span class="new">icon-512x512.svg</span>
+    ├── js/
+    │   ├── main.js        <span class="note">← UNTOUCHED</span>
+    │   └── <span class="new">pwa.js</span>         <span class="note">← NEW — SW registration + install button</span>
+    └── pages/
+        └── *.html         <span class="note">← MODIFIED — added manifest link + pwa.js</span></pre>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- XAMPP SETUP -->
+<div class="section">
+  <span class="label">Step 1</span>
+  <h2><span class="num">1</span> Copy Files to XAMPP</h2>
+  <div class="card">
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body"><strong>Extract the zip</strong> — you'll get a folder called <code>trueocc</code></div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body"><strong>Replace your existing folder</strong> — copy everything from the extracted <code>trueocc/</code> into <code>C:\xampp\htdocs\trueocc\</code> and overwrite all files</div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body"><strong>Start XAMPP</strong> — open XAMPP Control Panel → Start both <strong>Apache</strong> and <strong>MySQL</strong></div>
+    </div>
+    <div class="step">
+      <div class="sdot">4</div>
+      <div class="step-body"><strong>Open Chrome</strong> (must be Chrome or Edge — Firefox has limited PWA support)</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- VERIFY -->
+<div class="section">
+  <span class="label">Step 2</span>
+  <h2><span class="num">2</span> Verify PWA is Working in Chrome</h2>
+  <div class="card">
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">Open Chrome and go to: <code>http://localhost/trueocc/</code></div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">Press <strong>F12</strong> → click the <strong>Application</strong> tab → look at the left panel</div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Click <strong>Service Workers</strong> — you should see <code>sw.js</code> with status <span class="ok">✅ activated and running</span></div>
+    </div>
+    <div class="step">
+      <div class="sdot">4</div>
+      <div class="step-body">Click <strong>Manifest</strong> — you should see app name <code>True Occupation</code>, icons, and theme color <code>#0A66C2</code></div>
+    </div>
+    <div class="step">
+      <div class="sdot">5</div>
+      <div class="step-body">Click <strong>Cache Storage</strong> — expand it to see <code>trueocc-v1.0.0-static</code> with all your cached files listed</div>
+    </div>
+    <div class="step">
+      <div class="sdot">6</div>
+      <div class="step-body">Look at the bottom-right of the screen — you should see a blue <strong>📲 Install App</strong> button appear after 3 seconds</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- INSTALL ON DESKTOP -->
+<div class="section">
+  <span class="label">Step 3</span>
+  <h2><span class="num">3</span> Install on Desktop (Chrome / Edge)</h2>
+  <div class="card">
+    <p style="margin-bottom:14px"><strong style="color:#f1f5f9">Method A — Using the Install Button</strong></p>
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">Visit <code>http://localhost/trueocc/</code> — wait 3 seconds</div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">Click the blue <strong>📲 Install App</strong> button in the bottom-right corner</div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Click <strong>Install</strong> in the Chrome popup — TrueOcc opens as a standalone window!</div>
+    </div>
+    <div style="height:16px"></div>
+    <p style="margin-bottom:14px"><strong style="color:#f1f5f9">Method B — Using Chrome Address Bar</strong></p>
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">Visit <code>http://localhost/trueocc/</code></div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">Look for the <strong>⊕ install icon</strong> in the Chrome address bar (right side)</div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Click it → click <strong>Install</strong></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- INSTALL ANDROID -->
+<div class="section">
+  <span class="label">Step 4</span>
+  <h2><span class="num">4</span> Install on Android Phone</h2>
+  <div class="card">
+    <div style="background:#1e3a5f;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:.82rem;color:#7dd3fc">
+      ⚠️ Your phone and PC must be on the <strong>same WiFi network</strong>. You need your PC's local IP address.
+    </div>
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">On your PC, open <strong>Command Prompt</strong> and type <code>ipconfig</code> — find your <strong>IPv4 Address</strong> (e.g. <code>192.168.1.5</code>)</div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">On your Android phone, open <strong>Chrome</strong> and go to: <code>http://192.168.1.5/trueocc/</code> (replace with your actual IP)</div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Chrome will show a banner at the bottom: <strong>"Add TrueOcc to Home Screen"</strong> — tap it</div>
+    </div>
+    <div class="step">
+      <div class="sdot">4</div>
+      <div class="step-body">Or tap the <strong>3-dot menu → Add to Home Screen → Add</strong></div>
+    </div>
+    <div class="step">
+      <div class="sdot">5</div>
+      <div class="step-body">The TrueOcc icon appears on your home screen — tap to launch it in full-screen app mode!</div>
+    </div>
+    <div style="background:#14532d;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:.82rem;color:#86efac">
+      ✅ The app will open without browser bars — it looks and feels like a native Android app!
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- TEST OFFLINE -->
+<div class="section">
+  <span class="label">Step 5</span>
+  <h2><span class="num">5</span> Test Offline Mode</h2>
+  <div class="card">
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">Open Chrome DevTools → <strong>F12</strong> → <strong>Network tab</strong></div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">Change the throttling dropdown from <strong>"No throttling"</strong> to <strong>"Offline"</strong></div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Refresh the page — it should still load from cache! The red <strong>"📡 You are offline"</strong> bar appears at the top</div>
+    </div>
+    <div class="step">
+      <div class="sdot">4</div>
+      <div class="step-body">Navigate between pages — they all load from cache</div>
+    </div>
+    <div class="step">
+      <div class="sdot">5</div>
+      <div class="step-body">API calls (login, jobs) show an <span class="err">offline error message</span> — this is correct behavior (PHP needs server)</div>
+    </div>
+    <div class="step">
+      <div class="sdot">6</div>
+      <div class="step-body">Set throttling back to <strong>"No throttling"</strong> — the green <strong>"✅ Back online!"</strong> bar appears</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- LIGHTHOUSE -->
+<div class="section">
+  <span class="label">Step 6</span>
+  <h2><span class="num">6</span> Run Lighthouse PWA Audit</h2>
+  <div class="card">
+    <div class="step">
+      <div class="sdot">1</div>
+      <div class="step-body">Open Chrome DevTools → <strong>F12</strong> → click <strong>Lighthouse</strong> tab</div>
+    </div>
+    <div class="step">
+      <div class="sdot">2</div>
+      <div class="step-body">Uncheck everything except <strong>Progressive Web App</strong> — click <strong>Analyze page load</strong></div>
+    </div>
+    <div class="step">
+      <div class="sdot">3</div>
+      <div class="step-body">Wait ~30 seconds — you'll get a PWA score and checklist of what's passing</div>
+    </div>
+    <div class="step">
+      <div class="sdot">4</div>
+      <div class="step-body">Expected results: <span class="ok">✅ Installable</span> · <span class="ok">✅ Service Worker</span> · <span class="ok">✅ Offline page</span> · <span class="ok">✅ Manifest</span></div>
+    </div>
+    <div style="background:#713f12;border-radius:8px;padding:12px 14px;margin-top:10px;font-size:.82rem;color:#fcd34d">
+      ⚠️ HTTPS is required for a perfect 100% PWA score. On localhost this is waived — you'll still get the install prompt. For 100% score, deploy to a server with HTTPS.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FEATURES -->
+<div class="section">
+  <span class="label">PWA Features Summary</span>
+  <h2><span class="num">✨</span> What You Get</h2>
+  <div class="card">
+    <table style="width:100%;border-collapse:collapse;font-size:.875rem">
+      <tr style="border-bottom:.5px solid #334155">
+        <th style="text-align:left;padding:10px 12px;color:#64748b;font-size:.75rem;text-transform:uppercase">Feature</th>
+        <th style="text-align:left;padding:10px 12px;color:#64748b;font-size:.75rem;text-transform:uppercase">Status</th>
+        <th style="text-align:left;padding:10px 12px;color:#64748b;font-size:.75rem;text-transform:uppercase">Details</th>
+      </tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Installable</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Desktop + Android install button</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Offline Pages</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">All HTML/CSS/JS cached on first visit</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Offline API</td><td style="padding:10px 12px"><span class="warn">⚠️ Partial</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Shows friendly error (PHP needs server)</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">App Icon</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">SVG icons, all sizes, maskable</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Splash Screen</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Auto from manifest + theme color</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Standalone Mode</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">No browser UI when installed</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">App Shortcuts</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Long-press icon: Jobs, Dashboard, Login</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Auto Update</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Toast shown when new SW version ready</td></tr>
+      <tr style="border-bottom:.5px solid #1e293b"><td style="padding:10px 12px;color:#94a3b8">Online/Offline Bar</td><td style="padding:10px 12px"><span class="ok">✅ Yes</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Red bar when offline, green when back</td></tr>
+      <tr><td style="padding:10px 12px;color:#94a3b8">Push Notifications</td><td style="padding:10px 12px"><span class="warn">⚠️ Ready</span></td><td style="padding:10px 12px;color:#94a3b8;font-size:.82rem">Infrastructure added, needs push server</td></tr>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- TROUBLESHOOTING -->
+<div class="section">
+  <span class="label">Troubleshooting</span>
+  <h2><span class="num">⚡</span> Common Issues & Fixes</h2>
+  <div class="card">
+    <div class="card-title"><span class="err">Install button not showing</span></div>
+    <p>Open DevTools → Application → Manifest — look for errors. Most common: manifest not found or icons not loading. Make sure all files were copied correctly and Apache is running.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="err">Service Worker shows "redundant"</span></div>
+    <p>In DevTools → Application → Service Workers → click <strong>Unregister</strong> → hard refresh with <code>Ctrl+Shift+R</code>. The new SW will register fresh.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="err">Old cached pages showing after update</span></div>
+    <p>Change <code>APP_VERSION</code> in <code>sw.js</code> from <code>trueocc-v1.0.0</code> to <code>trueocc-v1.0.1</code>. Old caches are automatically deleted on next SW activation.</p>
+  </div>
+  <div class="card">
+    <div class="card-title"><span class="warn">Android: "Add to Home Screen" not appearing</span></div>
+    <p>Must use Chrome (not Samsung browser). Also make sure you've visited the site for at least 30 seconds and interacted with it. Chrome requires user engagement before showing the prompt.</p>
+  </div>
+</div>
+
+<div style="text-align:center;padding:20px 0;color:#475569;font-size:.8rem">
+  TrueOcc PWA Setup Guide · Works on XAMPP localhost · Chrome & Edge supported
+</div>
+
+</div>
+</body>
+</html>
