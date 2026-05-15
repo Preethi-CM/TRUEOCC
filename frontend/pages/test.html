@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aptitude Test – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="container page">
+  <div style="max-width:800px;margin:0 auto;" id="wrap"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js?v=2"></script>
+<script>
+let u = null, questions = [], answers = {}, timer = null, startTime = null, selectedCat = 'Mixed';
+
+async function init() {
+  const d = await checkAuth('seeker');
+  if (!d) return;
+  u = d;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+  loadNotifs();
+  const status = await API.get('test.php','status');
+  renderGate(status.data || {});
+}
+
+function renderGate(s) {
+  const canAttempt = s.can_attempt;
+  document.getElementById('wrap').innerHTML = `
+    <div class="card fade-in">
+      <div style="text-align:center;padding:20px 0;">
+        <div style="font-size:56px;margin-bottom:14px;">🧪</div>
+        <h1 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:8px;">Aptitude Test</h1>
+        <p style="color:var(--muted);margin-bottom:24px;">Test across 4 categories: Numerical, Logical, Verbal & Coding</p>
+        <div class="g4" style="margin-bottom:24px;">
+          ${[['🔢','Numerical','Arithmetic, algebra'],['🧩','Logical','Patterns, reasoning'],['📝','Verbal','Language, grammar'],['💻','Coding','CS fundamentals']].map(([ico,cat,desc])=>`
+            <div style="background:var(--bg);border-radius:var(--r-sm);padding:14px;cursor:pointer;border:2px solid transparent;transition:var(--t);" class="cat-opt" data-cat="${cat}" onclick="selectCat('${cat}',this)">
+              <div style="font-size:24px;margin-bottom:6px;">${ico}</div>
+              <div style="font-size:13px;font-weight:700;">${cat}</div>
+              <div style="font-size:11px;color:var(--muted);">${desc}</div>
+            </div>`).join('')}
+        </div>
+        <div style="margin-bottom:16px;">
+          <span style="font-size:13px;color:var(--muted);">Selected: </span>
+          <span class="badge b-blue" id="cat-lbl">Mixed (All)</span>
+        </div>
+        <div class="g3" style="margin-bottom:24px;">
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">25+</div><div style="font-size:12px;color:var(--muted);">Questions</div></div>
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">Timed</div><div style="font-size:12px;color:var(--muted);">1 min / question</div></div>
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">40%</div><div style="font-size:12px;color:var(--muted);">Of Fit Score</div></div>
+        </div>
+        <div class="alert a-info" style="text-align:left;margin-bottom:24px;">
+          <i class="fas fa-info-circle" style="flex-shrink:0;"></i>
+          <div>Score contributes <strong>40%</strong> to your Job Fit Score. ${s.is_premium ? '✨ Premium: Unlimited attempts.' : `Free: <strong>${s.attempts||0}/${s.free_limit||1}</strong> attempts used.`}</div>
+        </div>
+        ${!canAttempt ? `<div class="lock-box"><div style="font-size:48px;margin-bottom:12px;">🔒</div><div style="font-size:22px;font-weight:700;margin-bottom:8px;">Upgrade to Premium</div><p style="opacity:0.85;margin-bottom:20px;">Free attempt used. Get unlimited tests.</p><button class="btn btn-lg" style="background:white;color:#764ba2;font-weight:700;" onclick="openPremiumScanner()"><i class="fas fa-crown"></i> Upgrade – ₹499/month</button></div>`
+        : `<button class="btn btn-grad btn-lg" onclick="startTest()"><i class="fas fa-play"></i> Start Test</button>`}
+      </div>
+    </div>
+    <div class="card" style="margin-top:24px;"><div class="card-header"><span class="card-title">📊 Previous Results</span></div><div id="prev-res">Loading...</div></div>`;
+  loadPrev();
+}
+
+function selectCat(cat, el) {
+  selectedCat = cat;
+  document.querySelectorAll('.cat-opt').forEach(b => { b.style.borderColor='transparent'; b.style.background='var(--bg)'; });
+  el.style.borderColor = 'var(--primary)'; el.style.background = 'var(--primary-l)';
+  document.getElementById('cat-lbl').textContent = cat;
+}
+
+async function loadPrev() {
+  const res = await API.get('test.php','results');
+  const results = res.data?.results || [];
+  const el = document.getElementById('prev-res');
+  if (!results.length) { el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:16px;font-size:14px;">No attempts yet.</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Score</th><th>Correct</th><th>Total</th><th>Time</th></tr></thead><tbody>
+    ${results.map(r=>`<tr>
+      <td>${fmtDate(r.taken_at)}</td>
+      <td><span class="badge b-blue">${r.category}</span></td>
+      <td><strong style="color:${r.score_percentage>=70?'var(--success)':r.score_percentage>=50?'#F57F17':'var(--danger)'}">${r.score_percentage}%</strong></td>
+      <td>${r.correct_answers}</td><td>${r.total_questions}</td>
+      <td>${Math.floor(r.time_taken/60)}m ${r.time_taken%60}s</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function startTest() {
+  const res = await API.get('test.php','questions',{category: selectedCat});
+  if (!res.success) { toast(res.message, 'error'); return; }
+  questions = res.data.questions;
+  answers = {}; startTime = Date.now();
+  renderTest(res.data.time_limit);
+}
+
+function renderTest(timeLimit) {
+  let html = `<div class="card fade-in">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div><h2 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">🧪 Aptitude Test</h2>
+        <div style="font-size:13px;color:var(--muted);">${questions.length} questions · ${selectedCat}</div></div>
+      <div style="text-align:center;padding:10px 20px;background:var(--bg);border-radius:var(--r-sm);">
+        <div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);" id="timer">--:--</div>
+        <div style="font-size:11px;color:var(--muted);">Time Left</div>
+      </div>
+    </div>
+    <div class="prog-wrap" style="margin-bottom:20px;"><div class="prog-bar" id="tbar" style="width:100%;background:linear-gradient(90deg,var(--success),var(--primary));"></div></div>
+    <div id="ans-cnt" style="font-size:13px;color:var(--muted);margin-bottom:16px;">0 / ${questions.length} answered</div>`;
+
+  questions.forEach((q, i) => {
+    html += `<div class="q-card" id="qc-${i}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span class="q-num">Question ${i+1}</span>
+        <span class="badge b-blue" style="font-size:10px;">${q.category}</span>
+        <span class="badge b-gray" style="font-size:10px;">${q.difficulty}</span>
+      </div>
+      <div class="q-text">${q.question}</div>
+      <div class="opts">${['a','b','c','d'].map(opt=>`
+        <div class="opt" id="opt-${i}-${opt}" onclick="selectOpt(${i},'${opt}')">
+          <div class="opt-dot" id="dot-${i}-${opt}"></div>
+          <span><strong>${opt.toUpperCase()}.</strong> ${q['option_'+opt]}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  html += `<div style="display:flex;align-items:center;justify-content:space-between;padding-top:16px;border-top:1px solid var(--border);margin-top:8px;">
+    <div style="font-size:13px;color:var(--muted);"><i class="fas fa-info-circle"></i> Unanswered = skipped</div>
+    <button class="btn btn-grad btn-lg" id="submit-btn" onclick="submitTest()"><i class="fas fa-paper-plane"></i> Submit Test</button>
+  </div></div>`;
+
+  document.getElementById('wrap').innerHTML = html;
+
+  timer = new TestTimer(timeLimit,
+    (disp, pct, left) => {
+      const td = document.getElementById('timer'); const tb = document.getElementById('tbar');
+      if (td) { td.textContent = disp; if (left <= 60) td.style.color = 'var(--danger)'; }
+      if (tb) tb.style.width = pct + '%';
+    }, submitTest);
+  timer.start();
+}
+
+function selectOpt(qi, opt) {
+  const prev = answers[qi];
+  if (prev) document.getElementById(`opt-${qi}-${prev}`)?.classList.remove('sel');
+  answers[qi] = opt;
+  document.getElementById(`opt-${qi}-${opt}`)?.classList.add('sel');
+  const cnt = Object.keys(answers).length;
+  const el = document.getElementById('ans-cnt');
+  if (el) el.textContent = `${cnt} / ${questions.length} answered`;
+}
+
+async function submitTest() {
+  if (timer) timer.stop();
+  const timeTaken = Math.round((Date.now() - startTime) / 1000);
+  const btn = document.getElementById('submit-btn');
+  if (btn) setLoading(btn, true, 'Submitting...');
+
+  // Build answers object with string keys
+  const answersObj = {};
+  Object.entries(answers).forEach(([qi, opt]) => {
+    answersObj[String(questions[qi].id)] = opt;
+  });
+
+  const res = await API.post('test.php','submit', {
+    answers: answersObj,
+    category: selectedCat,
+    time_taken: timeTaken
+  });
+
+  if (!res.success) { toast(res.message, 'error'); if (btn) setLoading(btn, false); return; }
+  renderResult(res.data);
+}
+
+function renderResult(d) {
+  // Show correct/wrong on existing question cards
+  d.review.forEach((r, i) => {
+    ['a','b','c','d'].forEach(opt => {
+      const el = document.getElementById(`opt-${i}-${opt}`);
+      if (!el) return;
+      el.classList.remove('sel');
+      if (opt === r.correct_answer) el.classList.add('correct');
+      else if (opt === r.user_answer && !r.is_correct) el.classList.add('wrong');
+    });
+  });
+
+  const badge = d.score_pct>=80?'🏆 Excellent':d.score_pct>=60?'🎉 Good':'📚 Keep Practicing';
+  const rc = document.createElement('div');
+  rc.className = 'card fade-in'; rc.style.marginTop = '24px';
+  rc.innerHTML = `<div style="text-align:center;padding:20px 0;">
+    <div style="font-size:52px;margin-bottom:12px;">${d.score_pct>=80?'🏆':d.score_pct>=60?'🎉':'📚'}</div>
+    <h2 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:4px;">Test Complete!</h2>
+    <p style="color:var(--muted);margin-bottom:20px;">${d.correct}/${d.total} correct</p>
+    ${scoreRing(d.score_pct, 140)}
+    <div style="margin:16px 0;"><span class="badge ${d.score_pct>=70?'b-green':d.score_pct>=50?'b-yellow':'b-red'}" style="font-size:14px;padding:8px 20px;">${badge}</span></div>
+    <div class="g4" style="margin-bottom:20px;">
+      <div style="background:#E8F5E9;padding:14px;border-radius:var(--r-sm);"><div style="font-size:22px;font-weight:800;color:var(--success);">${d.correct}</div><div style="font-size:12px;color:var(--success);">Correct</div></div>
+      <div style="background:#FFEBEE;padding:14px;border-radius:var(--r-sm);"><div style="font-size:22px;font-weight:800;color:var(--danger);">${d.wrong}</div><div style="font-size:12px;color:var(--danger);">Wrong</div></div>
+      <div style="background:#F5F5F5;padding:14px;border-radius:var(--r-sm);"><div style="font-size:22px;font-weight:800;color:var(--muted);">${d.skipped}</div><div style="font-size:12px;color:var(--muted);">Skipped</div></div>
+      <div style="background:var(--primary-l);padding:14px;border-radius:var(--r-sm);"><div style="font-size:22px;font-weight:800;color:var(--primary);">${Math.floor(d.time_taken/60)}m${d.time_taken%60}s</div><div style="font-size:12px;color:var(--primary);">Time</div></div>
+    </div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Score saved to your Job Fit Score (40% weight). Review answers above.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <a href="user-dashboard.html" class="btn btn-primary"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="interview.html" class="btn btn-outline"><i class="fas fa-microphone"></i> Mock Interview</a>
+    </div>
+  </div>`;
+  document.getElementById('wrap').appendChild(rc);
+  rc.scrollIntoView({behavior:'smooth'});
+}
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

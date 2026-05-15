@@ -1,0 +1,85 @@
+{
+  "name": "True Occupation",
+  "short_name": "TrueOcc",
+  "description": "AI-Powered Job Portal – Resume matching, mock interviews, aptitude tests & verified employers.",
+  "start_url": "/trueocc/index.html",
+  "scope": "/trueocc/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0A66C2",
+  "background_color": "#ffffff",
+  "lang": "en",
+  "categories": ["business", "education", "productivity"],
+  "icons": [
+    {
+      "src": "/trueocc/frontend/icons/icon-72x72.svg",
+      "sizes": "72x72",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-96x96.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-128x128.svg",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-144x144.svg",
+      "sizes": "144x144",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-152x152.svg",
+      "sizes": "152x152",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-384x384.svg",
+      "sizes": "384x384",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/trueocc/frontend/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Jobs",
+      "short_name": "Jobs",
+      "url": "/trueocc/frontend/pages/jobs.html",
+      "icons": [{ "src": "/trueocc/frontend/icons/icon-96x96.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Dashboard",
+      "short_name": "Dashboard",
+      "url": "/trueocc/frontend/pages/user-dashboard.html",
+      "icons": [{ "src": "/trueocc/frontend/icons/icon-96x96.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Sign In",
+      "short_name": "Login",
+      "url": "/trueocc/frontend/pages/login.html",
+      "icons": [{ "src": "/trueocc/frontend/icons/icon-96x96.svg", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

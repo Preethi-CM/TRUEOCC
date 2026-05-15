@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Employer Dashboard – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="dash-hero"><div class="container">
+  <div class="hero-inner">
+    <div class="avatar lg" id="hav">E</div>
+    <div><div class="hero-name" id="hname">Loading...</div><div class="hero-sub" id="hco"></div><div class="hero-tag"><i class="fas fa-building"></i> Employer</div></div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hstat-val" id="st-jobs">0</div><div class="hstat-lbl">Active Jobs</div></div>
+      <div class="hero-stat"><div class="hstat-val" id="st-apps">0</div><div class="hstat-lbl">Applicants</div></div>
+      <div class="hero-stat"><div class="hstat-val" id="st-hired">0</div><div class="hstat-lbl">Hired</div></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="container page" style="padding-top:0;">
+  <div id="verif-banner"></div>
+  <div class="tabs">
+    <button class="tab active" onclick="show('overview',this)"><i class="fas fa-tachometer-alt"></i> Overview</button>
+    <button class="tab" onclick="show('verify',this)"><i class="fas fa-shield-alt"></i> Verification</button>
+    <button class="tab" onclick="show('post',this)"><i class="fas fa-plus-circle"></i> Post Job</button>
+    <button class="tab" onclick="show('jobs',this)"><i class="fas fa-briefcase"></i> My Jobs</button>
+    <button class="tab" onclick="show('applicants',this)"><i class="fas fa-users"></i> Applicants</button>
+    <button class="tab" onclick="show('email',this)"><i class="fas fa-envelope"></i> Send Email</button>
+  </div>
+  <div id="section-overview"></div>
+  <div id="section-verify" style="display:none;"></div>
+  <div id="section-post" style="display:none;"></div>
+  <div id="section-jobs" style="display:none;"></div>
+  <div id="section-applicants" style="display:none;"></div>
+  <div id="section-email" style="display:none;"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let empData = null, userData = null;
+const toggles = { test: false, interview: false };
+
+async function init() {
+  const d = await checkAuth('employer');
+  if (!d) return;
+  userData = d.user;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'employer');
+  loadNotifs();
+  const prof = await API.get('user.php','get_profile');
+  if (prof.success) {
+    empData = prof.data.employer;
+    renderHero(prof.data.user, empData);
+    renderVerifBanner(empData);
+  }
+  renderOverview();
+  if (window.location.hash === '#applicants') show('applicants', document.querySelectorAll('.tab')[4]);
+  else if (window.location.hash === '#jobs') show('jobs', document.querySelectorAll('.tab')[3]);
+}
+
+function renderHero(user, emp) {
+  const init = user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('hav').textContent = init;
+  document.getElementById('hname').textContent = 'Hello, ' + user.name.split(' ')[0] + '!';
+  document.getElementById('hco').textContent = emp?.company_name || user.email;
+}
+
+function renderVerifBanner(emp) {
+  const s = emp?.verification_status || 'none';
+  const map = {
+    none:     {cls:'a-info',    icon:'fa-info-circle',  msg:'Complete verification to post jobs.', btn:true},
+    pending:  {cls:'a-warning', icon:'fa-clock',        msg:'Verification under review. Please wait.'},
+    verified: {cls:'a-success', icon:'fa-check-circle', msg:`✓ Verified as "${emp?.company_name}". You can post jobs.`},
+    rejected: {cls:'a-error',   icon:'fa-times-circle', msg:'Verification rejected. Please resubmit.', btn:true}
+  };
+  const m = map[s] || map.none;
+  document.getElementById('verif-banner').innerHTML = `<div class="alert ${m.cls}" style="margin-bottom:16px;">
+    <i class="fas ${m.icon}" style="font-size:20px;flex-shrink:0;"></i>
+    <div style="flex:1;"><strong>Verification: ${s.charAt(0).toUpperCase()+s.slice(1)}</strong> — ${m.msg}</div>
+    ${m.btn?`<button onclick="show('verify',document.querySelectorAll('.tab')[1])" class="btn btn-primary btn-sm">Verify Now</button>`:''}
+  </div>`;
+}
+
+function show(name, btn) {
+  ['overview','verify','post','jobs','applicants','email'].forEach(s=>{
+    const el=document.getElementById('section-'+s); if(el) el.style.display=s===name?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const renders = { verify:renderVerify, post:renderPost, jobs:renderJobs, applicants:renderApplicants, email:renderEmail };
+  if (renders[name]) renders[name]();
+}
+
+async function renderOverview() {
+  const jobsRes = await API.get('jobs.php','my_jobs');
+  const appsRes = await API.get('jobs.php','applicants');
+  const myJobs = jobsRes.data?.jobs||[];
+  const myApps = appsRes.data?.applications||[];
+  document.getElementById('st-jobs').textContent = myJobs.filter(j=>j.is_active).length;
+  document.getElementById('st-apps').textContent = myApps.length;
+  document.getElementById('st-hired').textContent = myApps.filter(a=>a.status==='Hired').length;
+  document.getElementById('section-overview').innerHTML = `
+    <div class="g4" style="margin-bottom:28px;">
+      ${[
+        {icon:'fa-briefcase',bg:'#E3F2FD',ic:'var(--primary)',val:myJobs.length,lbl:'Total Jobs'},
+        {icon:'fa-paper-plane',bg:'#FFF3E0',ic:'#E65100',val:myApps.length,lbl:'Applications'},
+        {icon:'fa-star',bg:'#FFF8E1',ic:'#F57F17',val:myApps.filter(a=>a.status==='Shortlisted').length,lbl:'Shortlisted'},
+        {icon:'fa-user-check',bg:'#E8F5E9',ic:'var(--success)',val:myApps.filter(a=>a.status==='Hired').length,lbl:'Hired'},
+      ].map(s=>`<div class="stat-card"><div class="stat-icon" style="background:${s.bg};"><i class="fas ${s.icon}" style="color:${s.ic};"></i></div><div><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div></div>`).join('')}
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-header"><span class="card-title">Recent Jobs</span><button class="btn btn-outline btn-sm" onclick="show('jobs',document.querySelectorAll('.tab')[3])">View All</button></div>
+        ${myJobs.slice(0,4).map(j=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div class="co-logo" style="width:40px;height:40px;">${j.company[0]}</div>
+          <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${j.title}</div><div style="font-size:12px;color:var(--muted);">${j.app_count||0} applicants</div></div>
+          ${j.is_active?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Off</span>'}
+        </div>`).join('') || '<div style="color:var(--muted);font-size:14px;padding:12px 0;">No jobs yet</div>'}
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">Recent Applicants</span><button class="btn btn-outline btn-sm" onclick="show('applicants',document.querySelectorAll('.tab')[4])">View All</button></div>
+        ${myApps.slice(0,5).map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div class="avatar">${(a.name||'?')[0]}</div>
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">${a.name}</div><div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.job_title}</div></div>
+          ${statusBadge(a.status)}
+        </div>`).join('') || '<div style="color:var(--muted);font-size:14px;padding:12px 0;">No applicants yet</div>'}
+      </div>
+    </div>`;
+}
+
+function renderVerify() {
+  const emp = empData, s = emp?.verification_status||'none';
+  if (s==='verified') { document.getElementById('section-verify').innerHTML=`<div class="card"><div class="alert a-success"><i class="fas fa-check-circle" style="font-size:20px;"></i><div><strong>Verified!</strong> ${emp.company_name} is approved to post jobs.<br>Registration ID: ${emp.registration_id||'—'} · Industry: ${emp.industry||'—'} · Verified: ${fmtDate(emp.verified_at)}</div></div></div>`; return; }
+  if (s==='pending') { document.getElementById('section-verify').innerHTML=`<div class="card"><div class="alert a-warning"><i class="fas fa-clock" style="font-size:20px;"></i><div><strong>Pending Review</strong><br>Your verification is under admin review. You'll be notified once processed.</div></div></div>`; return; }
+  document.getElementById('section-verify').innerHTML = `<div class="card">
+    <div class="card-header"><h2 class="card-title"><i class="fas fa-shield-alt" style="color:var(--primary);"></i> Company Verification</h2></div>
+    ${s==='rejected'?`<div class="alert a-error" style="margin-bottom:16px;"><i class="fas fa-times-circle"></i> Verification rejected. ${emp?.verification_note||''} Please resubmit.</div>`:''}
+    <div class="alert a-info" style="margin-bottom:20px;"><i class="fas fa-info-circle"></i> Mandatory before posting jobs. Upload your registration certificate, GST, or business license.</div>
+    <form id="vform" onsubmit="submitVerif(event)">
+      <div class="g2">
+        <div class="fg"><label class="label">Company Name *</label><input type="text" name="company_name" class="input" value="${emp?.company_name||''}" required></div>
+        <div class="fg"><label class="label">Official Email *</label><input type="email" name="company_email" class="input" value="${emp?.company_email||''}" required></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label class="label">Registration ID *</label><input type="text" name="registration_id" class="input" value="${emp?.registration_id||''}" placeholder="REG2024001" required></div>
+        <div class="fg"><label class="label">Industry</label>
+          <select name="industry" class="select">
+            <option value="">Select Industry</option>
+            ${['Technology','Finance','Healthcare','Education','E-Commerce','Manufacturing','Real Estate','Other'].map(i=>`<option ${emp?.industry===i?'selected':''}>${i}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="label">Verification Document <span style="font-weight:400;color:var(--muted);">(PDF, JPG, PNG · Max 10 MB)</span></label>
+        <div id="vdrop" style="border:2px dashed var(--border);border-radius:var(--r);padding:28px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;" onclick="document.getElementById('vdoc').click()">
+          <div id="vdrop-icon" style="font-size:36px;color:var(--light);margin-bottom:8px;"><i class="fas fa-file-upload"></i></div>
+          <div id="vdrop-label" style="font-weight:600;margin-bottom:4px;">Click to select or drag & drop</div>
+          <div style="font-size:12px;color:var(--muted);">Registration certificate, GST, or business license · PDF / JPG / PNG · Max 10 MB</div>
+          <input type="file" id="vdoc" name="verification_doc" accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="onDocSelect(this)">
+        </div>
+        <div id="vdoc-preview" style="display:none;margin-top:10px;" class="alert a-success"></div>
+        ${emp?.verification_doc?`<div class="alert a-success" style="margin-top:8px;font-size:13px;"><i class="fas fa-check"></i> Currently uploaded: ${emp.verification_doc} — re-upload to replace</div>`:''}
+      </div>
+      <button type="submit" class="btn btn-grad btn-lg" id="vbtn"><i class="fas fa-paper-plane"></i> Submit for Verification</button>
+    </form>
+  </div>`;
+
+  // Drag & drop support
+  const drop = document.getElementById('vdrop');
+  if (drop) {
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = 'var(--primary)'; drop.style.background = 'rgba(var(--primary-rgb,10,102,194),0.04)'; });
+    drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; drop.style.background = ''; });
+    drop.addEventListener('drop', e => {
+      e.preventDefault();
+      drop.style.borderColor = ''; drop.style.background = '';
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const input = document.getElementById('vdoc');
+        const dt = new DataTransfer(); dt.items.add(file);
+        input.files = dt.files;
+        onDocSelect(input);
+      }
+    });
+  }
+}
+
+function onDocSelect(input) {
+  const file = input.files[0];
+  const preview = document.getElementById('vdoc-preview');
+  const label = document.getElementById('vdrop-label');
+  if (file && preview) {
+    preview.style.display = 'block';
+    preview.innerHTML = `<i class="fas fa-file"></i> Selected: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+    if(label) label.textContent = 'Selected: ' + file.name;
+  }
+}
+
+async function submitVerif(e) {
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('vform'));
+  const file = document.getElementById('vdoc').files[0];
+  if (file) {
+    fd.set('verification_doc', file);
+    // Show preview
+    const prev = document.getElementById('vdoc-preview');
+    if (prev) { prev.style.display='flex'; prev.innerHTML=`<i class="fas fa-file"></i> Selected: ${file.name} (${(file.size/1024).toFixed(0)} KB)`; }
+  }
+  const btn = document.getElementById('vbtn'); setLoading(btn,true,'Submitting...');
+  const res = await API.postForm('user.php','submit_verification',fd);
+  setLoading(btn,false);
+  if (res.success) {
+    toast('Verification submitted! Awaiting admin approval.','success');
+    if(empData) empData.verification_status='pending';
+    renderVerifBanner({...empData,verification_status:'pending'});
+    renderVerify();
+  } else {
+    toast(res.message || 'Submission failed. Check console.','error');
+    console.error('Verification error:', res);
+  }
+}
+
+let iqCount = 0;
+function renderPost() {
+  if (empData?.verification_status !== 'verified') {
+    document.getElementById('section-post').innerHTML = `<div class="card"><div class="lock-box"><div style="font-size:48px;margin-bottom:12px;">🔒</div><div style="font-size:22px;font-weight:700;margin-bottom:8px;">Verification Required</div><p style="opacity:0.85;margin-bottom:20px;">Verify your company first to post jobs.</p><button onclick="show('verify',document.querySelectorAll('.tab')[1])" class="btn btn-lg" style="background:white;color:#764ba2;font-weight:700;"><i class="fas fa-shield-alt"></i> Verify Now</button></div></div>`; return;
+  }
+  iqCount = 1;
+  document.getElementById('section-post').innerHTML = `<div class="card">
+    <div class="card-header"><h2 class="card-title"><i class="fas fa-plus-circle" style="color:var(--primary);"></i> Post a New Job</h2></div>
+    <div class="g2">
+      <div class="fg"><label class="label">Job Title *</label><input type="text" id="p-title" class="input" placeholder="Frontend Developer"></div>
+      <div class="fg"><label class="label">Location *</label><input type="text" id="p-loc" class="input" placeholder="Bangalore / Remote"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label class="label">Job Type</label><select id="p-type" class="select"><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Internship</option><option>Remote</option></select></div>
+      <div class="fg"><label class="label">Experience Level</label><select id="p-level" class="select"><option value="Entry">Entry Level</option><option value="Mid">Mid Level</option><option value="Senior">Senior</option><option value="Lead">Lead</option></select></div>
+    </div>
+    <div class="fg"><label class="label">Salary Range</label><input type="text" id="p-sal" class="input" placeholder="₹8-12 LPA or Competitive"></div>
+    <div class="fg"><label class="label">Job Description *</label><textarea id="p-desc" class="textarea" placeholder="Describe the role, responsibilities, and day-to-day tasks..." style="min-height:140px;"></textarea></div>
+    <div class="fg"><label class="label">Requirements</label><textarea id="p-req" class="textarea" placeholder="Required qualifications, experience, nice-to-haves..."></textarea></div>
+    <div class="fg"><label class="label">Required Skills * <span style="font-weight:400;color:var(--muted);">(comma separated — used for AI candidate matching)</span></label><input type="text" id="p-skills" class="input" placeholder="React, JavaScript, Node.js, SQL..."></div>
+    <div class="g2" style="margin-bottom:24px;">
+      <div><label class="label">Require Aptitude Test</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="btn btn-ghost btn-sm toggle-btn" id="tog-test" onclick="toggleOpt('test')">Off</button>
+          <span id="test-lbl" style="font-size:14px;color:var(--muted);">No aptitude test required</span>
+        </div>
+      </div>
+      <div><label class="label">Require Mock Interview</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button class="btn btn-ghost btn-sm toggle-btn" id="tog-int" onclick="toggleOpt('interview')">Off</button>
+          <span id="int-lbl" style="font-size:14px;color:var(--muted);">No interview required</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Interview Questions -->
+    <div style="background:var(--bg);border-radius:var(--r);padding:20px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:2px;"><i class="fas fa-microphone" style="color:var(--primary);"></i> Custom Interview Questions</div>
+          <div style="font-size:13px;color:var(--muted);">These questions will be used in the AI mock interview for this job</div>
+        </div>
+        <button onclick="addIQ()" class="btn btn-outline btn-sm"><i class="fas fa-plus"></i> Add Question</button>
+      </div>
+      <div id="iq-list">
+        <div class="iq-item" data-n="1" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span style="font-size:13px;color:var(--muted);font-weight:600;width:20px;">1.</span>
+          <input type="text" class="input iq-input" placeholder="e.g. Tell me about a challenging project you worked on..." style="flex:1;">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-grad btn-lg" id="post-btn" onclick="postJob()"><i class="fas fa-paper-plane"></i> Post Job</button>
+  </div>`;
+}
+
+function toggleOpt(key) {
+  toggles[key] = !toggles[key];
+  const btn = document.getElementById('tog-'+key.slice(0,3));
+  const lbl = document.getElementById(key.slice(0,4)+'-lbl');
+  if (btn) { btn.textContent = toggles[key]?'On':'Off'; btn.className = toggles[key]?'btn btn-primary btn-sm toggle-btn':'btn btn-ghost btn-sm toggle-btn'; }
+  if (lbl) lbl.textContent = toggles[key] ? (key==='test'?'Aptitude test required':'Mock interview required') : (key==='test'?'No aptitude test required':'No interview required');
+}
+
+function addIQ() {
+  iqCount++;
+  const item = document.createElement('div');
+  item.className = 'iq-item';
+  item.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;';
+  item.innerHTML = `<span style="font-size:13px;color:var(--muted);font-weight:600;width:20px;">${iqCount}.</span>
+    <input type="text" class="input iq-input" placeholder="Interview question..." style="flex:1;">
+    <button onclick="this.parentElement.remove()" class="btn btn-danger btn-sm" style="flex-shrink:0;"><i class="fas fa-times"></i></button>`;
+  document.getElementById('iq-list').appendChild(item);
+}
+
+async function postJob() {
+  const title=document.getElementById('p-title')?.value.trim(), loc=document.getElementById('p-loc')?.value.trim();
+  const desc=document.getElementById('p-desc')?.value.trim(), skills=document.getElementById('p-skills')?.value.trim();
+  if (!title||!loc||!desc||!skills) { toast('Fill all required fields.','error'); return; }
+  const iqInputs = document.querySelectorAll('.iq-input');
+  const iqs = Array.from(iqInputs).map(i=>i.value.trim()).filter(Boolean);
+  const btn=document.getElementById('post-btn'); setLoading(btn,true,'Posting...');
+  const res = await API.post('jobs.php','post',{
+    title, location:loc, description:desc, skills_required:skills,
+    job_type:document.getElementById('p-type').value, experience_level:document.getElementById('p-level').value,
+    salary_range:document.getElementById('p-sal')?.value.trim()||'',
+    requirements:document.getElementById('p-req')?.value.trim()||'',
+    require_test:toggles.test?1:0, require_interview:toggles.interview?1:0,
+    interview_questions: iqs
+  });
+  setLoading(btn,false);
+  if (res.success) { toast('Job posted! Matched seekers notified via email. 🎉','success'); show('jobs',document.querySelectorAll('.tab')[3]); }
+  else toast(res.message,'error');
+}
+
+async function renderJobs() {
+  const res = await API.get('jobs.php','my_jobs');
+  const jobs = res.data?.jobs||[];
+  document.getElementById('section-jobs').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;">My Posted Jobs (${jobs.length})</h2>
+      <button class="btn btn-grad" onclick="show('post',document.querySelectorAll('.tab')[2])"><i class="fas fa-plus"></i> Post New Job</button>
+    </div>
+    ${!jobs.length?`<div class="card"><div class="empty"><div class="empty-icon">💼</div><div class="empty-title">No Jobs Posted</div><div style="font-size:14px;color:var(--muted);">Post your first job to start receiving applications.</div></div></div>`:`
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Job Title</th><th>Location</th><th>Type</th><th>Applicants</th><th>Status</th><th>Posted</th><th>Actions</th></tr></thead>
+      <tbody>${jobs.map(j=>`<tr>
+        <td><div style="font-weight:600;">${j.title}</div><div style="font-size:12px;color:var(--muted);">${j.experience_level} Level</div></td>
+        <td>${j.location}</td>
+        <td><span class="badge b-blue" style="font-size:11px;">${j.job_type}</span></td>
+        <td><strong>${j.app_count||0}</strong></td>
+        <td>${j.is_active?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Inactive</span>'}</td>
+        <td>${fmtDate(j.posted_at)}</td>
+        <td><div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="toggleJob(${j.id})">${j.is_active?'Deactivate':'Activate'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteJobConfirm(${j.id})"><i class="fas fa-trash"></i></button>
+        </div></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`}`;
+}
+
+async function toggleJob(id) { await API.get('jobs.php','toggle',{id}); toast('Status updated.','success'); renderJobs(); }
+function deleteJobConfirm(id) { confirmDialog('Delete this job? All applications will be removed.', async()=>{ await API.get('jobs.php','delete',{id}); toast('Job deleted.','success'); renderJobs(); }, {title:'Delete Job',yes:'Delete'}); }
+
+async function renderApplicants() {
+  const res = await API.get('jobs.php','applicants');
+  const apps = res.data?.applications||[];
+  document.getElementById('section-applicants').innerHTML = `
+    <h2 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px;">All Applicants (${apps.length})</h2>
+    ${!apps.length?`<div class="card"><div class="empty"><div class="empty-icon">👥</div><div class="empty-title">No Applicants</div></div></div>`:`
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Applicant</th><th>Job</th><th>Match</th><th>Readiness</th><th>Applied</th><th>Status</th><th>Update</th></tr></thead>
+      <tbody>${apps.map(a=>`<tr>
+        <td><div style="display:flex;align-items:center;gap:10px;"><div class="avatar">${(a.name||'?')[0]}</div><div><div style="font-weight:600;">${a.name}</div><div style="font-size:12px;color:var(--muted);">${a.email}</div></div></div></td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">${a.job_title}</td>
+        <td>${a.match_percentage>0?`<span class="badge ${a.match_percentage>=70?'b-green':a.match_percentage>=40?'b-yellow':'b-gray'}">${a.match_percentage}%</span>`:'—'}</td>
+        <td>${a.readiness_score>0?`<span class="badge b-blue">${Math.round(a.readiness_score)}%</span>`:'—'}</td>
+        <td>${fmtDate(a.applied_at)}</td>
+        <td>${statusBadge(a.status)}</td>
+        <td>
+          <select class="select" style="padding:6px 10px;font-size:13px;width:130px;" onchange="updateStatus(${a.id},this.value)">
+            <option ${a.status==='Applied'?'selected':''}>Applied</option>
+            <option ${a.status==='Shortlisted'?'selected':''}>Shortlisted</option>
+            <option ${a.status==='Interview'?'selected':''}>Interview</option>
+            <option ${a.status==='Rejected'?'selected':''}>Rejected</option>
+            <option ${a.status==='Hired'?'selected':''}>Hired</option>
+          </select>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table></div>`}`;
+}
+
+async function updateStatus(appId, status) {
+  const res = await API.post('jobs.php','update_status',{app_id:appId,status});
+  if (res.success) toast(`Status → ${status}. Email sent to candidate.`,'success');
+  else toast(res.message,'error');
+}
+
+function renderEmail() {
+  document.getElementById('section-email').innerHTML = `<div class="card" style="max-width:600px;">
+    <div class="card-header"><h2 class="card-title"><i class="fas fa-envelope" style="color:var(--primary);"></i> Send Email</h2></div>
+    <div class="alert a-info"><i class="fas fa-info-circle"></i> Send emails to candidates or specific applicants.</div>
+    <div class="fg"><label class="label">To (Email or "all_seekers")</label><input type="text" id="em-to" class="input" placeholder="candidate@email.com or all_seekers"></div>
+    <div class="fg"><label class="label">Recipient Name</label><input type="text" id="em-name" class="input" placeholder="John Doe"></div>
+    <div class="fg"><label class="label">Subject *</label><input type="text" id="em-sub" class="input" placeholder="Regarding your application..."></div>
+    <div class="fg"><label class="label">Message *</label><textarea id="em-msg" class="textarea" placeholder="Your message here..." style="min-height:140px;"></textarea></div>
+    <button class="btn btn-grad" id="em-btn" onclick="sendEmail()"><i class="fas fa-paper-plane"></i> Send Email</button>
+  </div>`;
+}
+
+async function sendEmail() {
+  const to=document.getElementById('em-to').value.trim(), sub=document.getElementById('em-sub').value.trim(), msg=document.getElementById('em-msg').value.trim();
+  if (!to||!sub||!msg) { toast('Fill all required fields.','error'); return; }
+  const btn=document.getElementById('em-btn'); setLoading(btn,true,'Sending...');
+  // Employers route through admin API for sending emails
+  const res = await API.post('admin.php','send_email',{to_email:to,to_name:document.getElementById('em-name').value.trim()||'Candidate',subject:sub,message:msg});
+  setLoading(btn,false);
+  if (res.success) { toast('Email sent successfully!','success'); document.getElementById('em-msg').value=''; }
+  else toast(res.message,'error');
+}
+
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

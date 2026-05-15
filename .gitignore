@@ -1,0 +1,21 @@
+# Database & Config
+backend/includes/config.php
+database/backups/
+*.sql
+
+# PHP & Server
+error_log
+.htaccess
+php_error.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Uploads (Optional: usually ignored in repos to save space)
+backend/uploads/books/*
+backend/uploads/resumes/*
+backend/uploads/docs/*
+!backend/uploads/.gitkeep

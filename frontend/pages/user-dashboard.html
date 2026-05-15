@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="dash-hero"><div class="container">
+  <div class="hero-inner">
+    <div class="avatar lg" id="hav">?</div>
+    <div>
+      <div class="hero-name" id="hname">Loading...</div>
+      <div class="hero-sub" id="hemail"></div>
+      <div class="hero-tag"><i class="fas fa-user"></i> Job Seeker</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hstat-val" id="st-apps">0</div><div class="hstat-lbl">Applications</div></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="container page" style="padding-top:0;">
+  <div id="resume-alert"></div>
+  <div class="g4" id="quick-actions" style="margin-bottom:28px;"></div>
+  <div id="readiness-mount" style="margin-bottom:24px;"></div>
+  <div class="two-col">
+    <div>
+      <div class="card" id="recent-apps"></div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let u = null;
+async function init() {
+  const d = await checkAuth('seeker');
+  if (!d) return;
+  u = d;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+  loadNotifs();
+  const init2 = d.user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('hav').textContent = init2;
+  document.getElementById('hname').textContent = `Hello, ${d.user.name.split(' ')[0]}! 👋`;
+  document.getElementById('hemail').textContent = d.user.email;
+  loadStats();
+}
+async function loadStats() {
+  const res = await API.get('user.php','dashboard_stats');
+  if (!res.success) return;
+  const s = res.data;
+  document.getElementById('st-apps').textContent = s.applications;
+  const fit = s.fit_score;
+
+  renderReadinessCard(s.readiness, fit);
+
+  document.getElementById('quick-actions').innerHTML = [
+    {href:'jobs.html',icon:'fa-search',bg:'#E3F2FD',ic:'var(--primary)',t:'Search Jobs',d:'Find opportunities'},
+    {href:'resume.html',icon:'fa-file-alt',bg:'#E8F5E9',ic:'#2E7D32',t:'My Resume',d:'Build or update resume'},
+    {href:'test.html',icon:'fa-clipboard-list',bg:'#FFF3E0',ic:'#E65100',t:'Aptitude Test',d:'4 categories · timed'},
+    {href:'interview.html',icon:'fa-microphone',bg:'#F3E5F5',ic:'#6A1B9A',t:'Mock Interview',d:'Voice + Gemini AI'},
+    {href:'applications.html',icon:'fa-tasks',bg:'#E0F7FA',ic:'#00695C',t:'Applications',d:'Track your status'},
+    {href:'books.html',icon:'fa-book',bg:'#FFF8E1',ic:'#F57F17',t:'Learning',d:'Books + coding platforms'},
+  ].map(a=>`<a href="${a.href}" class="stat-card" style="flex-direction:column;text-align:center;gap:10px;padding:20px;text-decoration:none;">
+    <div class="stat-icon" style="background:${a.bg};margin:0 auto;"><i class="fas ${a.icon}" style="color:${a.ic}"></i></div>
+    <div><div style="font-weight:700;font-size:14px;">${a.t}</div><div style="font-size:12px;color:var(--muted);">${a.d}</div></div>
+  </a>`).join('');
+
+  if (!s.resume) {
+    document.getElementById('resume-alert').innerHTML = `<div class="alert a-warning" style="margin-bottom:20px;">
+      <i class="fas fa-exclamation-triangle" style="font-size:18px;flex-shrink:0;"></i>
+      <div><strong>Resume Required!</strong> Create or upload your resume to apply for jobs and get AI job matching.
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="resume.html" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Create Resume</a>
+        <a href="resume.html#upload" class="btn btn-outline btn-sm"><i class="fas fa-upload"></i> Upload PDF</a>
+      </div></div>
+    </div>`;
+  }
+
+
+  loadRecentApps();
+}
+
+function roadmapStorageKey() {
+  return 'trueocc_roadmap_' + (u && u.user ? u.user.id : '0');
+}
+function loadRoadmapProgress() {
+  try { return JSON.parse(localStorage.getItem(roadmapStorageKey()) || '{}'); } catch (e) { return {}; }
+}
+function saveRoadmapProgress(obj) {
+  localStorage.setItem(roadmapStorageKey(), JSON.stringify(obj));
+}
+function toggleRoadmapTask(weekIdx, taskIdx, checked) {
+  const p = loadRoadmapProgress();
+  p[`w${weekIdx}_t${taskIdx}`] = !!checked;
+  saveRoadmapProgress(p);
+}
+
+function renderReadinessCard(readiness, fit) {
+  const mount = document.getElementById('readiness-mount');
+  if (!mount) return;
+  const score = readiness && readiness.score != null ? Math.round(readiness.score) : null;
+  const bd = readiness && readiness.breakdown ? readiness.breakdown : null;
+  const comps = bd && bd.components ? bd.components : [];
+  const sugg = bd && bd.suggestions ? bd.suggestions : [];
+
+  if (score == null) {
+    mount.innerHTML = `<div class="card readiness-card"><div class="card-header"><span class="card-title">🎓 Career readiness</span></div>
+      <div class="empty" style="padding:20px;text-align:left;"><div class="empty-title">Score not available yet</div>
+      <p style="font-size:14px;color:var(--muted);margin:8px 0 0;">Complete your resume, take an aptitude test, or finish a mock interview — your readiness score will appear here.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+        <a href="resume.html" class="btn btn-primary btn-sm">Resume</a>
+        <a href="test.html" class="btn btn-outline btn-sm">Aptitude</a>
+        <a href="interview.html" class="btn btn-outline btn-sm">Interview</a>
+      </div></div>`;
+    return;
+  }
+
+  const weakest = [...comps].sort((a,b) => (a.value||0) - (b.value||0)).slice(0, 2);
+  mount.innerHTML = `
+    <div class="card readiness-card">
+      <div class="card-header"><span class="card-title">🎓 Career readiness</span>
+        <span style="font-size:12px;color:var(--muted);">Holistic fresher signal</span>
+      </div>
+      <div class="readiness-card-body">
+        <div class="readiness-ring-col">${scoreRing(score, 132)}</div>
+        <div class="readiness-detail-col">
+          <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Blends resume depth, aptitude, interview, skill match, profile, and recent activity (last ~4 weeks).</p>
+          <div style="margin-bottom:12px;">
+            ${comps.map(c => `
+              <div style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;">
+                  <span>${escapeHtml(c.label)} (${c.weight_pct}%)</span><strong>${Math.round(c.value)}%</strong>
+                </div>
+                <div class="prog-wrap"><div class="prog-bar readiness-bar" style="width:${Math.min(100, c.value)}%"></div></div>
+              </div>`).join('')}
+          </div>
+          ${weakest.length ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Focus next: <strong>${weakest.map(w => escapeHtml(w.label)).join(', ')}</strong></div>` : ''}
+          ${sugg.length ? `<ul class="readiness-suggestions">${sugg.map(t => '<li>' + escapeHtml(t) + '</li>').join('')}</ul>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function loadRecentApps() {
+  const res = await API.get('jobs.php','my_applications');
+  const apps = (res.data?.applications||[]).slice(0,4);
+  let html = `<div class="card-header"><span class="card-title">📋 Recent Applications</span><a href="applications.html" style="font-size:13px;color:var(--primary);">View all</a></div>`;
+  if (!apps.length) html += `<div class="empty" style="padding:20px;"><div class="empty-icon" style="font-size:28px;opacity:0.4;">📭</div><div style="font-size:13px;color:var(--muted);">No applications yet</div></div>`;
+  else apps.forEach(a=>{html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+    <div class="co-logo" style="width:38px;height:38px;font-size:15px;background:${coBg(a.company)}">${(a.company||'?')[0]}</div>
+    <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.job_title}</div><div style="font-size:12px;color:var(--muted);">${a.company}</div></div>
+    ${statusBadge(a.status)}
+  </div>`;});
+  document.getElementById('recent-apps').innerHTML = html;
+}
+
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

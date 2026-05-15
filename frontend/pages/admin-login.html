@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+body{background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.box{width:100%;max-width:420px;}
+.logo{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:white;text-align:center;margin-bottom:4px;}
+.sub{color:rgba(255,255,255,0.4);text-align:center;font-size:13px;margin-bottom:24px;}
+.panel{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:32px;}
+.dark-input{width:100%;padding:12px 16px;border:1.5px solid #334155;border-radius:8px;font-size:15px;background:#0f172a;color:white;outline:none;font-family:'DM Sans',sans-serif;}
+.dark-input:focus{border-color:#0A66C2;}
+</style>  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div class="box">
+  <div class="logo">TrueOcc <span style="font-size:14px;background:var(--danger);color:white;padding:2px 8px;border-radius:999px;margin-left:4px;">Admin</span></div>
+  <div class="sub">Secure administrator access</div>
+  <div class="panel">
+    <div id="err" class="alert a-error" style="display:none;"></div>
+    <div class="fg"><label class="label" style="color:rgba(255,255,255,0.6);">Admin Email</label><input type="email" id="email" class="dark-input" placeholder="admin@trueocc.com"></div>
+    <div class="fg" style="margin-top:16px;"><label class="label" style="color:rgba(255,255,255,0.6);">Password</label><input type="password" id="pass" class="dark-input" placeholder="••••••••"></div>
+    <button class="btn btn-grad btn-full btn-lg" style="margin-top:8px;" id="btn" onclick="doAdminLogin()"><i class="fas fa-lock-open"></i> Admin Sign In</button>
+    <div style="text-align:center;margin-top:16px;"><a href="login.html" style="font-size:13px;color:rgba(255,255,255,0.3);">← Back to user login</a></div>
+    <div style="margin-top:20px;background:#0f172a;border-radius:8px;padding:12px;font-size:12px;color:rgba(255,255,255,0.3);">Demo: admin@trueocc.com / Admin@1234</div>
+  </div>
+</div>
+<script src="../js/main.js"></script>
+<script>
+async function doAdminLogin() {
+  const email=document.getElementById('email').value.trim(), pass=document.getElementById('pass').value;
+  const err=document.getElementById('err'); err.style.display='none';
+  if(!email||!pass){err.innerHTML='Fill all fields.';err.style.display='flex';return;}
+  const btn=document.getElementById('btn'); setLoading(btn,true,'Authenticating...');
+  const res=await API.post('auth.php','admin_login',{email,password:pass});
+  setLoading(btn,false);
+  if(res.success){toast('Admin login successful!','success');setTimeout(()=>window.location.href=res.data.redirect,500);}
+  else{err.innerHTML=`<i class="fas fa-exclamation-circle"></i> ${res.message}`;err.style.display='flex';}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doAdminLogin();});
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

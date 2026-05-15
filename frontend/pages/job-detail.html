@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Job Details – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div class="container page">
+  <a href="jobs.html" style="display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;font-weight:500;margin-bottom:24px;"><i class="fas fa-arrow-left"></i> Back to Jobs</a>
+  <div id="content" class="two-col"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let cu = null, jobData = null, guidanceData = null;
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function init() {
+  try { const d = await checkAuth('seeker'); if (d) { cu = d; document.getElementById('nav').innerHTML = buildNavbar(d.user,'seeker'); loadNotifs(); } }
+  catch(e) { document.getElementById('nav').innerHTML = `<nav class="nav"><div class="wrap"><a href="../index.html" class="nav-brand">True<span>Occ</span></a><div class="nav-right"><a href="login.html" class="btn btn-grad btn-sm">Sign In</a></div></div></nav>`; }
+
+  const id = new URLSearchParams(window.location.search).get('id');
+  if (!id) { document.getElementById('content').innerHTML = `<div class="empty"><div class="empty-icon">💼</div><div class="empty-title">Job Not Found</div><a href="jobs.html" class="btn btn-primary">Browse Jobs</a></div>`; return; }
+
+  const res = await API.get('jobs.php','get',{id});
+  if (!res.success) { document.getElementById('content').innerHTML = `<div class="empty"><div class="empty-icon">💼</div><div class="empty-title">${res.message}</div></div>`; return; }
+  jobData = res.data;
+  let skillGap = null;
+  if (cu) {
+    const skillRes = await API.get('jobs.php','skill_gap',{job_id: res.data.job.id});
+    if (skillRes.success) skillGap = skillRes.data;
+  }
+  renderJob(res.data, skillGap);
+  await loadSkillGuidance(jobData.job.id);
+}
+
+function renderJob(data, skillGap) {
+  const {job, already_applied, match_pct, interview_questions} = data;
+  document.title = `${job.title} at ${job.company} – True Occupation`;
+  const skills = (job.skills_required||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+  document.getElementById('content').innerHTML = `
+    <div>
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:flex-start;gap:20px;margin-bottom:20px;flex-wrap:wrap;">
+          <div class="co-logo" style="width:72px;height:72px;font-size:28px;background:${coBg(job.company)};flex-shrink:0;">${(job.company||'?')[0]}</div>
+          <div style="flex:1;">
+            <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:6px;">${job.title}</h1>
+            <div style="font-size:16px;color:var(--muted);margin-bottom:12px;">${job.company}</div>
+            <div class="job-tags">
+              <span class="jtag"><i class="fas fa-map-marker-alt"></i> ${job.location}</span>
+              <span class="jtag"><i class="fas fa-clock"></i> ${job.job_type}</span>
+              ${job.salary_range?`<span class="jtag"><i class="fas fa-rupee-sign"></i> ${job.salary_range}</span>`:''}
+              <span class="jtag"><i class="fas fa-layer-group"></i> ${job.experience_level} Level</span>
+              <span class="jtag"><i class="fas fa-calendar"></i> ${fmtDate(job.posted_at)}</span>
+            </div>
+          </div>
+          ${match_pct > 0 ? `<div style="text-align:center;padding:16px 20px;background:${match_pct>70?'#E8F5E9':match_pct>40?'#FFF8E1':'var(--bg)'};border-radius:var(--r);flex-shrink:0;">
+            <div style="font-size:32px;font-weight:800;font-family:'Syne',sans-serif;color:${match_pct>70?'var(--success)':match_pct>40?'#F57F17':'var(--muted)'};">${match_pct}%</div>
+            <div style="font-size:12px;font-weight:600;color:var(--muted);">Match</div>
+          </div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+          ${job.require_test ? '<span class="badge b-orange"><i class="fas fa-clipboard-list"></i> Test Required</span>' : ''}
+          ${job.require_interview ? '<span class="badge b-blue"><i class="fas fa-microphone"></i> Interview Required</span>' : ''}
+          <span class="badge b-green"><i class="fas fa-check-circle"></i> Verified Employer</span>
+        </div>
+        <div id="apply-main">${renderApply(already_applied, job)}</div>
+      </div>
+
+      ${skillGap ? `
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header"><h2 class="card-title">Your Skill Match</h2></div>
+        <div>
+          ${skillGap.matched_skills && skillGap.matched_skills.length ? `
+          <div style="margin-bottom:16px;">
+            <div class="label" style="color:var(--success);">✓ Matched Skills (${skillGap.matched_skills.length})</div>
+            <div>${skillGap.matched_skills.map(s=>`<span class="chip" style="background:#E8F5E9;color:var(--success);"><i class="fas fa-check"></i> ${escapeHtml(s)}</span>`).join('')}</div>
+          </div>
+          ` : ''}
+          ${skillGap.gaps && skillGap.gaps.length ? `
+          <div>
+            <div class="label" style="color:#FF9800;">⚠️ Skills to Develop (${skillGap.gaps.length})</div>
+            <div>${skillGap.gaps.slice(0,5).map(g=>`<span class="chip" style="background:#FFF3E0;color:#FF9800;"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(g.skill)}</span>`).join('')}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px;">Missing skills are advisory only. You can still apply and learn on the job.</div>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+      ` : ''}
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header"><h2 class="card-title">Job Description</h2></div>
+        <p style="line-height:1.8;color:var(--muted);white-space:pre-wrap;">${job.description}</p>
+        ${job.requirements?`<div style="margin-top:16px;"><div class="label" style="margin-bottom:8px;">Requirements</div><p style="line-height:1.8;color:var(--muted);white-space:pre-wrap;">${job.requirements}</p></div>`:''}
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-header"><h2 class="card-title">Required Skills</h2></div>
+        <div>${skills.map(s=>`<span class="chip">${s}</span>`).join('')}</div>
+        <div id="job-guidance-block" style="margin-top:20px;"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card sticky-top" style="margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:14px;">Quick Apply</div>
+        <div id="apply-side">${renderApply(already_applied, job)}</div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:14px;">🚀 Prepare for This Role</div>
+        ${job.require_test?`<div class="alert a-warning" style="font-size:13px;margin-bottom:10px;"><i class="fas fa-exclamation-triangle"></i> Aptitude test required for this job.</div>`:''}
+        ${job.require_interview?`<div class="alert a-info" style="font-size:13px;margin-bottom:10px;"><i class="fas fa-info-circle"></i> Mock interview required.</div>`:''}
+        <a href="test.html" class="btn btn-outline btn-full" style="margin-bottom:10px;justify-content:flex-start;"><i class="fas fa-clipboard-list"></i> Take Aptitude Test</a>
+        <a href="interview.html?job_id=${job.id}" class="btn btn-outline btn-full" style="justify-content:flex-start;"><i class="fas fa-microphone"></i> Mock Interview${interview_questions?.length ? ' (Custom Questions)' : ''}</a>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">About ${job.company_name||job.company}</div>
+        <div style="font-size:14px;line-height:1.8;color:var(--muted);">
+          ${job.industry?`<div>🏢 <strong>Industry:</strong> ${job.industry}</div>`:''}
+          ${job.company_size?`<div>👥 <strong>Size:</strong> ${job.company_size} employees</div>`:''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderApply(applied, job) {
+  if (!cu) return `<a href="login.html" class="btn btn-grad btn-full btn-lg"><i class="fas fa-sign-in-alt"></i> Sign In to Apply</a>`;
+  if (cu.user.role !== 'seeker') return `<div class="alert a-info"><i class="fas fa-info-circle"></i> Only job seekers can apply.</div>`;
+  if (applied) return `<div class="alert a-success"><i class="fas fa-check-circle"></i> <strong>Applied!</strong> We'll notify you of updates.</div><a href="applications.html" class="btn btn-outline btn-full btn-sm"><i class="fas fa-tasks"></i> Track Application</a>`;
+  return `<div style="display:grid;gap:12px;margin-bottom:10px;">
+      <button class="btn btn-grad btn-full btn-lg" id="apply-btn" onclick="applyNow(${job.id})"><i class="fas fa-paper-plane"></i> Apply Now</button>
+      <button class="btn btn-outline btn-full btn-lg" onclick="openImproveSkills(${job.id})"><i class="fas fa-chart-line"></i> Improve Skills First</button>
+    </div>
+    <div style="margin-top:10px;">
+      <label class="label">Cover Letter <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+      <textarea id="cover" class="textarea" placeholder="Why are you a great fit..." style="min-height:80px;font-size:13px;"></textarea>
+    </div>`;
+}
+
+async function loadSkillGuidance(jobId) {
+  guidanceData = null;
+  const target = document.getElementById('job-guidance-block') || document.getElementById('job-guidance-side');
+  if (!target) {
+    console.error('Skill guidance target element not found');
+    return;
+  }
+
+  try {
+    const res = await API.get('jobs.php', 'skill_gap', { job_id: jobId });
+    if (!res.success) {
+      if (res.message && res.message.includes('Unauthorized')) {
+        target.innerHTML = `<div class="alert a-info" style="margin-top:16px;"><i class="fas fa-info-circle"></i> <a href="login.html" style="color:var(--primary);">Sign in as a job seeker</a> to see personalized skill guidance and match analysis.</div>`;
+      } else {
+        target.innerHTML = `<div class="alert a-danger" style="margin-top:16px;">${escapeHtml(res.message || 'Unable to load skill guidance.')}</div>`;
+      }
+      return;
+    }
+    guidanceData = res.data;
+    guidanceData.job_id = jobId;
+    target.innerHTML = renderSkillGuidanceCard(guidanceData);
+  } catch (error) {
+    console.error('Error loading skill guidance:', error);
+    target.innerHTML = `<div class="alert a-danger" style="margin-top:16px;">Error loading skill guidance. Please try refreshing the page.</div>`;
+  }
+}
+
+function renderSkillGuidanceCard(data) {
+  const matchPct = data.match_pct || 0;
+  const missingSkills = data.missing_skills || [];
+  const matchedSkills = data.matched_skills || [];
+  const resources = data.recommended_resources || [];
+  const coach = data.coach_suggestions || [];
+  const plan = data.weekly_plan || [];
+  const bgStyles = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F'];
+  const covers = ['📘','📗','📙','📕','📓','📔','📒','📚'];
+
+  if (!data.has_resume) {
+    return `<div class="card">
+      <div class="card-title">Skill Guidance</div>
+      <div class="alert a-warning" style="margin-bottom:16px;"><i class="fas fa-exclamation-triangle"></i> We couldn't find a resume for your account. Upload or create your resume to get personalized skill gap guidance and apply.</div>
+      <a href="resume.html" class="btn btn-primary btn-full">Create Resume</a>
+    </div>`;
+  }
+
+  return `<div class="card">
+      <div class="card-title">Skill Guidance</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="flex:1;padding:14px;border:1px solid var(--border);border-radius:12px;background:#E8F5E9;min-width:150px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Match Score</div>
+          <div style="font-size:24px;font-weight:700;color:${matchPct>=70?'var(--success)':matchPct>=40?'#F57F17':'' };">${matchPct}%</div>
+        </div>
+        <div style="flex:1;padding:14px;border:1px solid var(--border);border-radius:12px;background:#FFF8E1;min-width:150px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Missing Skills</div>
+          <div style="font-size:24px;font-weight:700;">${missingSkills.length}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <strong>Matched Skills</strong>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+          ${matchedSkills.length ? matchedSkills.slice(0,6).map(s=>`<span class="chip">${escapeHtml(s)}</span>`).join('') : '<span style="color:var(--muted);font-size:13px;">No exact matches found yet.</span>'}
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <strong>Missing Skills</strong>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+          ${missingSkills.length ? missingSkills.slice(0,6).map(s=>`<span class="chip chip-outline">${escapeHtml(s)}</span>`).join('') : '<span style="color:var(--muted);font-size:13px;">You already cover all required skills.</span>'}
+        </div>
+      </div>
+      ${plan.length ? `<div style="margin-bottom:16px;"><strong>Weekly Improvement Plan</strong><div style="margin-top:10px;display:grid;gap:10px;">${plan.slice(0,4).map((w,i)=>`<div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
+            <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;"><strong style="color:var(--primary);">Week ${w.week}: ${escapeHtml(w.title)}</strong><span style="color:var(--muted);font-size:12px;font-weight:500;">${escapeHtml(w.focus)}</span></div>
+            <ul style="padding-left:18px;margin:0;color:var(--muted);font-size:13px;line-height:1.5;">${w.tasks.map(t=>`<li style="margin-bottom:4px;">${escapeHtml(t)}</li>`).join('')}</ul>
+          </div>`).join('')}</div></div>` : ''}
+      ${resources.length ? `<div style="margin-bottom:16px;"><strong>Recommended Learning Resources</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:10px;">${resources.slice(0,4).map((r,i)=>`<div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);transition:var(--t);cursor:pointer;" onclick="window.location.href='books.html'">
+            <div style="height:120px;background:${bgStyles[i % bgStyles.length]};color:white;display:flex;align-items:flex-end;padding:16px;font-size:32px;">${covers[i % covers.length]}</div>
+            <div style="padding:14px;">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px;">${escapeHtml(r.title || 'Resource')}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${escapeHtml(r.difficulty || 'Intermediate')} · ~${escapeHtml(String(r.weekly_hours || 3))}h/week</div>
+              <div style="font-size:12px;color:var(--muted);">${escapeHtml(r.category || 'Career learning')}</div>
+            </div>
+          </div>`).join('')}</div></div>` : ''}
+      ${coach.length ? `<div style="margin-bottom:16px;"><strong>Coach Tips</strong><div style="margin-top:10px;">${coach.slice(0,2).map(c=>`<div style="margin-bottom:10px;padding:10px;border-left:3px solid var(--primary);background:#E3F2FD;border-radius:6px;font-size:13px;"><strong>${escapeHtml(c.title)}</strong><div style="color:var(--muted);margin-top:4px;">${escapeHtml(c.text)}</div></div>`).join('')}</div></div>` : ''}
+      <div class="alert a-info" style="font-size:13px;margin-bottom:16px;">
+        <i class="fas fa-info-circle"></i> Skill gaps are advisory only. Apply now or use the learning plan to improve your fit.
+      </div>
+      <div style="display:grid;gap:10px;">
+        <button class="btn btn-grad btn-full" onclick="applyNow(${data.job_id});"><i class="fas fa-paper-plane"></i> Apply Anyway</button>
+        <button class="btn btn-outline btn-full" onclick="openImproveSkills(${data.job_id});"><i class="fas fa-book"></i> Improve Skills First</button>
+      </div>
+    </div>`;
+}
+
+async function applyNow(jobId) {
+  if (!guidanceData) {
+    await loadSkillGuidance(jobId);
+  }
+  
+  if (!guidanceData || !guidanceData.has_resume) {
+    openModal(`<div class="modal-hd"><h2 class="modal-title">Resume Required 📄</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+      <div class="alert a-warning"><i class="fas fa-exclamation-triangle"></i> You need a resume to apply.</div>
+      <p style="color:var(--muted);margin-bottom:20px;">Create or upload your resume to showcase your skills and complete your application.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;"><a href="resume.html" class="btn btn-primary"><i class="fas fa-plus"></i> Create Resume</a><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+    return;
+  }
+
+  const gaps = guidanceData.gap_summary?.gaps || [];
+  const missingList = gaps.slice(0,4).map(g => `<li style="margin:4px 0;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);">${escapeHtml(g.skill)} <span style="color:var(--muted);font-size:12px;display:block;margin-top:4px;">${escapeHtml(g.action)}</span></li>`).join('');
+  const matchPct = guidanceData.match_pct || 0;
+
+  openModal(`
+    <div class="modal-hd"><h2 class="modal-title">Ready to Apply?</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div style="padding:0 20px 20px;max-height:70vh;overflow:auto;">
+      <div style="margin-bottom:16px;color:var(--muted);font-size:14px;">Your resume is present. This application is allowed even if some skills are missing.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="flex:1;padding:12px;border:1px solid var(--border);border-radius:10px;background:#E8F5E9;">
+          <div style="font-size:12px;color:var(--muted);">Match Score</div>
+          <div style="font-weight:700;font-size:20px;">${matchPct}%</div>
+        </div>
+        <div style="flex:1;padding:12px;border:1px solid var(--border);border-radius:10px;background:#FFF8E1;">
+          <div style="font-size:12px;color:var(--muted);">Missing Skills</div>
+          <div style="font-weight:700;font-size:20px;">${gaps.length}</div>
+        </div>
+      </div>
+      ${missingList ? `<div style="margin-bottom:16px;"><strong style="font-size:14px;">Missing Skill Highlights</strong><ul style="padding-left:18px;margin:10px 0 0;color:var(--muted);">${missingList}</ul></div>` : `<div class="alert a-success">Great news — your resume already covers the required job skills.</div>`}
+      <div class="alert a-info" style="font-size:13px;margin-bottom:18px;"><i class="fas fa-info-circle"></i> Missing skills are advisory only, not a restriction. You can still apply now.</div>
+      <div style="display:grid;gap:12px;">
+        <button class="btn btn-grad btn-full" onclick="submitApplication(${jobId}); closeModal();" id="apply-confirm-btn"><i class="fas fa-paper-plane"></i> Apply Anyway</button>
+        <button class="btn btn-outline btn-full" onclick="openImproveSkills(${jobId})"><i class="fas fa-book"></i> Improve Skills First</button>
+      </div>
+    </div>`);
+}
+
+async function openImproveSkills(jobId) {
+  if (!guidanceData || guidanceData.job_id !== jobId) {
+    await loadSkillGuidance(jobId);
+  }
+  if (!guidanceData) return;
+  const gaps = guidanceData.missing_skills || [];
+  const plan = guidanceData.weekly_plan || [];
+  const books = guidanceData.recommended_resources || [];
+  const coach = guidanceData.coach_suggestions || [];
+
+  openModal(`
+    <div class="modal-hd"><h2 class="modal-title">📚 Improve Skills for This Role</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div style="max-height:70vh;overflow:auto;padding:0 20px 20px;">
+      <div style="padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px;">
+        <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(jobData.job.title)} @ ${escapeHtml(jobData.job.company)}</div>
+        <div style="font-size:12px;color:var(--muted);">Personalized learning path to close skill gaps</div>
+      </div>
+      
+      ${gaps.length ? `
+      <div style="margin-bottom:16px;">
+        <strong style="font-size:14px;">🎯 Missing Skills (${gaps.length})</strong>
+        <ul style="padding-left:18px;margin:8px 0 0;">${gaps.slice(0,5).map(g => `<li style="margin:4px 0;font-size:13px;">${escapeHtml(g)}</li>`).join('')}</ul>
+      </div>
+      ` : ''}
+      
+      ${plan.length ? `
+      <div style="margin-bottom:16px;">
+        <strong style="font-size:14px;">📅 4-Week Learning Plan</strong>
+        ${plan.slice(0,4).map((w, i) => `
+        <div style="margin:8px 0;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:12px;">
+          <strong>Week ${w.week}: ${escapeHtml(w.title)}</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">📌 ${escapeHtml(w.focus)}</p>
+          <ul style="padding-left:16px;margin:4px 0 0;font-size:11px;color:var(--muted);">
+            ${w.tasks.slice(0,2).map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+          </ul>
+        </div>
+        `).join('')}
+      </div>
+      ` : ''}
+      
+      ${books.length ? `
+      <div style="margin-bottom:16px;">
+        <strong style="font-size:14px;">📖 Recommended Learning Resources</strong>
+        ${books.slice(0,4).map(b => `
+        <div style="margin:8px 0;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+          <strong>${escapeHtml(b.title || 'Resource')}</strong>
+          <div style="color:var(--muted);font-size:11px;margin-top:2px;">${escapeHtml(b.difficulty || 'Intermediate')} • ~${b.weekly_hours || 3}h/week</div>
+        </div>
+        `).join('')}
+      </div>
+      ` : ''}
+      
+      ${coach.length ? `
+      <div style="margin-bottom:16px;">
+        <strong style="font-size:14px;">💡 Career Coach Tips</strong>
+        ${coach.slice(0,3).map(c => `
+        <div style="margin:8px 0;padding:10px;border-left:3px solid var(--primary);background:#E3F2FD;border-radius:4px;font-size:12px;">
+          <strong>${escapeHtml(c.title || 'Tip')}</strong>
+          <p style="margin:4px 0 0;color:var(--muted);">${escapeHtml(c.text || '')}</p>
+        </div>
+        `).join('')}
+      </div>
+      ` : ''}
+      
+      <div style="padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:12px;margin-bottom:16px;">
+        <strong>🎓 Get Started Now</strong>
+        <p style="margin:4px 0 0;color:var(--muted);">Bookmark this job and start learning from the resources above. You can apply once you've strengthened key skills.</p>
+      </div>
+      
+      <div style="display:grid;gap:12px;">
+        <a href="books.html" class="btn btn-primary" onclick="closeModal()"><i class="fas fa-book"></i> Browse Learning Resources</a>
+        <a href="test.html" class="btn btn-outline" onclick="closeModal()"><i class="fas fa-graduation-cap"></i> Take Aptitude Test</a>
+        <a href="interview.html" class="btn btn-outline" onclick="closeModal()"><i class="fas fa-microphone"></i> Practice Interview</a>
+      </div>
+    </div>
+  `);
+}
+
+async function submitApplication(jobId) {
+  const btn = document.getElementById('apply-confirm-btn') || document.getElementById('apply-btn');
+  setLoading(btn, true, 'Submitting...');
+  const cover = document.getElementById('cover')?.value || '';
+  const res = await API.post('jobs.php', 'apply', {job_id: jobId, cover_letter: cover});
+  if (res.success) {
+    toast(`Applied! Match: ${res.data.match_pct}% 🎉`, 'success');
+    setTimeout(() => {
+      const applyMain = document.getElementById('apply-main');
+      const applySide = document.getElementById('apply-side');
+      if (applyMain) applyMain.innerHTML = `<div class="alert a-success"><i class="fas fa-check-circle"></i> <strong>Applied!</strong> We'll notify you of updates.</div><a href="applications.html" class="btn btn-outline btn-full btn-sm"><i class="fas fa-tasks"></i> Track Application</a>`;
+      if (applySide) applySide.innerHTML = `<div class="alert a-success"><i class="fas fa-check-circle"></i> Applied!</div>`;
+    }, 1000);
+  } else {
+    toast(res.message, 'error');
+    if (btn) setLoading(btn, false);
+  }
+}
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

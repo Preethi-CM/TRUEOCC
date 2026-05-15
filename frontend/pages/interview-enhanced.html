@@ -1,0 +1,738 @@
+  <!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Proctored Interview – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+  <style>
+    /* Interview enhancements */
+    .interview-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+    .camera-feed { width: 100%; height: 220px; background: #000; border-radius: 12px; position: relative; overflow: hidden; border: 2px solid var(--border); }
+    #video { width: 100%; height: 100%; object-fit: cover; }
+    #canvas-proctoring { display: none; position: absolute; top: 0; left: 0; }
+    .camera-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; margin-top: 8px; }
+    .camera-status.active { background: #E8F5E9; color: var(--success); }
+    .camera-status.error { background: #FFEBEE; color: var(--danger); }
+    .proctoring-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .proctoring-item { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; padding: 8px 10px; border-radius: 6px; background: var(--bg); }
+    .proctoring-item.ok { background: #E8F5E9; color: var(--success); }
+    .proctoring-item.warning { background: #FFF3E0; color: #E65100; }
+    .proctoring-item.alert { background: #FFEBEE; color: var(--danger); }
+    .proctor-icon { font-size: 13px; min-width: 16px; }
+    .warning-banner { background: #FFF3E0; border-left: 4px solid #E65100; padding: 12px; border-radius: 4px; margin: 12px 0; font-size: 13px; display: none; }
+    .warning-banner.show { display: flex; align-items: center; gap: 8px; }
+    .warning-banner i { color: #E65100; }
+    .ai-hr-tip { background: var(--primary-l); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: var(--primary); line-height: 1.5; }
+    .ai-hr-tip strong { color: var(--primary); }
+    .discipline-score-widget { background: linear-gradient(135deg, #FFF3E0, #FFE0B2); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center; }
+    .discipline-score-widget .score { font-size: 24px; font-weight: 800; color: #E65100; }
+    .discipline-score-widget .label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; }
+    
+    /* Report styling */
+    .report-section { margin-bottom: 24px; }
+    .report-metric { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 12px; background: var(--bg); border-radius: 8px; }
+    .metric-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+    .metric-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; margin: 0 12px; overflow: hidden; }
+    .metric-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .metric-score { font-size: 16px; font-weight: 800; min-width: 40px; text-align: right; }
+    .discipline-warning { display: flex; align-items: center; gap: 8px; background: #FFEBEE; border-left: 3px solid var(--danger); padding: 10px 12px; border-radius: 4px; font-size: 13px; margin-bottom: 10px; }
+    .discipline-warning i { color: var(--danger); }
+    .event-log { background: var(--bg); border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; font-size: 12px; }
+    .event-item { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; }
+    .event-item:last-child { border-bottom: none; }
+    .event-time { color: var(--muted); min-width: 60px; }
+    .event-desc { color: var(--text); }
+    .event-warning { color: #E65100; font-weight: 600; }
+  </style>
+</head><body>
+<div id="nav"></div>
+<div class="container page">
+  <div style="max-width:1000px;margin:0 auto;" id="wrap"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// ENHANCED AI PROCTORED INTERVIEW WITH DISCIPLINE TRACKING
+// ════════════════════════════════════════════════════════════════════════════
+
+let u = null, questions = [], answers = [], currentQ = 0, interviewSessionId = null;
+let recognition = null, synth = window.speechSynthesis;
+let isRecording = false, attemptRole = '', jobId = null;
+let videoStream = null, faceModelsLoaded = false;
+let faceMesh = null, camera = null;
+let disciplineScore = 100, warnings = 0, disciplineEvents = [];
+let proctorStats = {camera: false, microphone: false, headStraight: true, eyeContact: true, multiface: false};
+let headTurnWarnings = 0, faceNotDetectedTime = 0, silenceTime = 0, tabSwitchCount = 0;
+let interviewStartTime = 0, interviewMetrics = {
+  answerQuality: 0, communicationClarity: 0, confidencePace: 0, 
+  cameraDisc: 100, completionConsistency: 100
+};
+
+
+async function init() {
+  const d = await checkAuth('seeker');
+  if (!d) return;
+  u = d;
+  document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+  loadNotifs();
+  const params = new URLSearchParams(window.location.search);
+  jobId = params.get('job_id') ? parseInt(params.get('job_id')) : null;
+  const status = await API.get('interview.php', 'status');
+  renderGate(status.data || {});
+}
+
+function renderGate(s) {
+  const canAttempt = s.can_attempt;
+  document.getElementById('wrap').innerHTML = `
+    <div class="card fade-in">
+      <div style="text-align:center;padding:20px 0 10px;">
+        <div style="font-size:56px;margin-bottom:14px;">🎬</div>
+        <h1 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:8px;">AI Proctored Interview</h1>
+        <p style="color:var(--muted);margin-bottom:20px;"><strong>Real-time</strong> camera + microphone monitoring • AI discipline tracking • Comprehensive scoring</p>
+        <div class="g3" style="margin-bottom:24px;">
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">5</div><div style="font-size:12px;color:var(--muted);">Questions</div></div>
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">🛡️ Real</div><div style="font-size:12px;color:var(--muted);">Proctoring</div></div>
+          <div style="background:var(--bg);border-radius:var(--r-sm);padding:16px;"><div style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif;color:var(--primary);">📊</div><div style="font-size:12px;color:var(--muted);">Full Report</div></div>
+        </div>
+        <div class="fg" style="text-align:left;max-width:400px;margin:0 auto 20px;">
+          <label class="label">Target Role <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+          <input type="text" id="target-role" class="input" placeholder="e.g. Frontend Developer, Data Analyst...">
+        </div>
+        <div class="alert a-info" style="text-align:left;margin-bottom:24px;">
+          <i class="fas fa-info-circle" style="flex-shrink:0;"></i>
+          <div><strong>How Discipline Works:</strong><br>
+          ✓ <strong>Warning 1:</strong> Soft message, no penalty<br>
+          ⚠️ <strong>Warning 2:</strong> Yellow status, small deduction (5 pts)<br>
+          ❌ <strong>Warning 3+:</strong> Marked "low discipline," final report shows impact<br><br>
+          <strong>Tracked Events:</strong> Face detection loss, looking away, multiple faces, tab switches, silence, mic issues.
+          ${jobId ? '<br>📌 Using <strong>custom employer questions</strong> for this job.' : ''}</div>
+        </div>
+        ${!canAttempt ? `<div class="lock-box"><div style="font-size:48px;margin-bottom:12px;">🔒</div>
+          <div style="font-size:22px;font-weight:700;margin-bottom:8px;">Upgrade to Premium</div>
+          <p style="opacity:0.85;margin-bottom:20px;">Free session used. Unlimited AI interviews with proctoring.</p>
+          <button class="btn btn-lg" style="background:white;color:#764ba2;font-weight:700;" onclick="toast('Premium coming soon!','info')"><i class="fas fa-crown"></i> Upgrade – ₹499/month</button>
+        </div>` : `<button class="btn btn-grad btn-lg" onclick="startInterview()"><i class="fas fa-play"></i> Start Proctored Interview</button>`}
+      </div>
+    </div>`;
+  loadPrev();
+}
+
+async function loadPrev() {
+  const res = await API.get('interview.php', 'results');
+  const results = res.data?.results || [];
+  const el = document.getElementById('prev') || (() => { const d = document.createElement('div'); document.getElementById('wrap').appendChild(d); return d; })();
+  if (!results.length) return;
+  el.innerHTML = `<div class="card" style="margin-top:24px;"><div class="card-header"><span class="card-title">📋 Previous Sessions</span></div><div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Question</th><th>Discipline</th><th>Score</th></tr></thead><tbody>
+    ${results.slice(0, 5).map(r=>`<tr>
+      <td>${fmtDate(r.taken_at)}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.question}</td>
+      <td><span style="font-size:12px;font-weight:600;color:${r.discipline_score>=80?'var(--success)':r.discipline_score>=60?'#F57F17':'var(--danger)'};">📊 ${r.discipline_score || 100}</span></td>
+      <td><strong>${r.ai_score}/10</strong></td>
+    </tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+async function startInterview() {
+  attemptRole = document.getElementById('target-role')?.value.trim() || 'Software Engineer';
+  const begin = await API.post('interview.php', 'begin_batch', {
+    job_id: jobId || undefined,
+    target_role: attemptRole
+  });
+  if (!begin.success) { toast(begin.message, 'error'); return; }
+  interviewSessionId = begin.data.session_id;
+  const params = { role: attemptRole };
+  if (jobId) params.job_id = jobId;
+  const res = await API.get('interview.php', 'questions', params);
+  if (!res.success) { toast(res.message, 'error'); return; }
+  questions = res.data.questions;
+  answers = new Array(questions.length).fill('');
+  interviewStartTime = Date.now();
+  disciplineScore = 100;
+  warnings = 0;
+  disciplineEvents = [];
+  currentQ = 0;
+  renderQuestion();
+}
+
+async function initCamera() {
+  try {
+    const videoEl = document.getElementById('video');
+    if (!videoEl) {
+      console.error('Video element not found');
+      return;
+    }
+    
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: false });
+    videoEl.srcObject = videoStream;
+    proctorStats.camera = true;
+    addDisciplineEvent('camera_on', 'Camera started');
+    
+    // Load MediaPipe scripts dynamically
+    await loadMediaPipeScripts();
+    
+    // Initialize MediaPipe FaceMesh
+    faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+    
+    faceMesh.setOptions({
+      maxNumFaces: 4,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    
+    faceMesh.onResults(onFaceMeshResults);
+    
+    camera = new Camera(videoEl, {
+      onFrame: async () => {
+        await faceMesh.send({image: videoEl});
+      },
+      width: 320,
+      height: 240
+    });
+    
+    camera.start();
+    faceModelsLoaded = true;
+    startHeadTrackingLoop();
+    console.log('MediaPipe FaceMesh initialized successfully');
+  } catch (e) {
+    console.error('Camera init error:', e);
+    toast('Camera access issue. Proctoring limited.', 'warning');
+    proctorStats.camera = false;
+  }
+}
+
+async function loadMediaPipeScripts() {
+  const scripts = [
+    'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
+    'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js',
+    'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js'
+  ];
+  
+  for (const url of scripts) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+}
+
+function onFaceMeshResults(results) {
+  if (!results.multiFaceLandmarks) return;
+  
+  const faceCount = results.multiFaceLandmarks.length;
+  
+  // Detect multiple faces
+  if (faceCount > 1) {
+    issueWarning(`Multiple faces detected (${faceCount})`, 'multiple_faces');
+    interviewMetrics.cameraDisc -= 2;
+  } else if (faceCount === 1) {
+    proctorStats.headStraight = true;
+    const landmarks = results.multiFaceLandmarks[0];
+    checkHeadPose(landmarks);
+  } else {
+    faceNotDetectedTime = Date.now() - (window.lastFaceTime || Date.now());
+    if (faceNotDetectedTime > 5000) {
+      issueWarning('Face not detected for 5+ seconds', 'face_missing');
+    }
+  }
+  
+  window.lastFaceTime = Date.now();
+}
+
+function checkHeadPose(landmarks) {
+  // Use landmark indices for head pose estimation
+  const nose = landmarks[1];
+  const leftEye = landmarks[33];
+  const rightEye = landmarks[263];
+  const leftMouth = landmarks[61];
+  const rightMouth = landmarks[291];
+  
+  // Calculate head rotation angles
+  const eyeDistance = Math.abs(rightEye.x - leftEye.x);
+  const mouthDistance = Math.abs(rightMouth.x - leftMouth.x);
+  const ratio = mouthDistance / (eyeDistance || 0.001);
+  
+  const yaw = Math.atan2(ratio - 1, 0.5) * (180 / Math.PI);
+  const pitch = Math.atan2(nose.y - (leftEye.y + rightEye.y) / 2, eyeDistance) * (180 / Math.PI);
+  
+  // Check if head is turned or tilted significantly
+  if (Math.abs(yaw) > 25 || Math.abs(pitch) > 18) {
+    headTurnWarnings++;
+    proctorStats.headStraight = false;
+    if (headTurnWarnings % 3 === 1) {
+      issueWarning('Looking away from camera', 'head_rotation');
+    }
+  } else {
+    headTurnWarnings = 0;
+    proctorStats.headStraight = true;
+  }
+}
+
+async function startHeadTrackingLoop() {
+  if (!faceModelsLoaded) {
+    setTimeout(() => startHeadTrackingLoop(), 500);
+    return;
+  }
+  // MediaPipe processes continuously via onFaceMeshResults callback
+  updateProctorUI();
+}
+
+function updateProctorUILoop() {
+  updateProctorUI();
+  setTimeout(updateProctorUILoop, 1000);
+}
+
+// Start UI updates
+if (document.readyState !== 'loading') {
+  updateProctorUILoop();
+} else {
+  document.addEventListener('DOMContentLoaded', updateProctorUILoop);
+}
+
+function issueWarning(message, type) {
+  warnings++;
+  addDisciplineEvent(type, message, 'warning');
+  
+  let penalty = 0;
+  if (warnings === 1) {
+    toast(`⚠️ ${message}`, 'warning');
+  } else if (warnings === 2) {
+    penalty = 5;
+    disciplineScore = Math.max(0, disciplineScore - penalty);
+    toast(`⚠️ Warning 2/3: ${message} (5 pts deducted)`, 'warning');
+  } else if (warnings >= 3) {
+    penalty = 3;
+    disciplineScore = Math.max(0, disciplineScore - penalty);
+    addDisciplineEvent('discipline_issue', 'Low interview discipline marked', 'alert');
+  }
+  
+  updateProctorUI();
+}
+
+function addDisciplineEvent(type, message, severity = 'info') {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  disciplineEvents.push({ time, type, message, severity });
+  if (disciplineEvents.length > 30) disciplineEvents.shift();
+}
+
+function updateProctorUI() {
+  const el = document.getElementById('proctoring-status');
+  if (!el) return;
+  
+  const cameraStatus = proctorStats.camera && faceNotDetectedTime < 3000;
+  el.innerHTML = `
+    <div class="discipline-score-widget">
+      <div class="score">${Math.max(0, Math.round(disciplineScore))}</div>
+      <div class="label">Discipline Score</div>
+    </div>
+    <div class="proctoring-item ${cameraStatus ? 'ok' : proctorStats.camera ? 'warning' : 'alert'}">
+      <span class="proctor-icon">${cameraStatus ? '✓' : faceNotDetectedTime > 0 ? '⚠' : '✕'}</span>
+      Face: ${cameraStatus ? 'Visible' : faceNotDetectedTime > 0 ? 'Away' : 'Not detected'}
+    </div>
+    <div class="proctoring-item ${proctorStats.microphone ? 'ok' : 'alert'}">
+      <span class="proctor-icon">${proctorStats.microphone ? '✓' : '✕'}</span>
+      Microphone: ${proctorStats.microphone ? 'Active' : 'Inactive'}
+    </div>
+    <div class="proctoring-item ${warnings === 0 ? 'ok' : warnings < 2 ? 'warning' : 'alert'}">
+      <span class="proctor-icon">${warnings > 0 ? '⚠' : '✓'}</span>
+      Warnings: ${warnings}/${warnings >= 3 ? '3+' : '2'}
+    </div>
+  `;
+}
+
+function renderQuestion() {
+  if (currentQ >= questions.length) { submitAll(); return; }
+  const q = questions[currentQ];
+  const pct = (currentQ / questions.length) * 100;
+
+  document.getElementById('wrap').innerHTML = `
+    <div class="card fade-in">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;">🎬 Proctored Interview in Progress</h2>
+          <div style="font-size:13px;color:var(--muted);">Q${currentQ+1}/${questions.length} • ${attemptRole} • Discipline: ${Math.max(0, Math.round(disciplineScore))}</div>
+        </div>
+        <span class="badge b-blue"><i class="fas fa-shield-alt"></i> Live Proctoring</span>
+      </div>
+
+      <div class="prog-wrap" style="margin-bottom:16px;"><div class="prog-bar" style="width:${pct}%"></div></div>
+
+      <!-- Two column layout -->
+      <div class="interview-container" style="margin-bottom:16px;">
+        <div>
+          <div class="iq" style="margin-bottom:16px;">${q}</div>
+          <button class="btn btn-ghost btn-sm" style="margin-bottom:16px;" onclick="speakQuestion('${q.replace(/'/g,"\\'")}')">
+            <i class="fas fa-volume-up"></i> AI Reads Question
+          </button>
+          
+          <!-- Voice Input -->
+          <div style="background:var(--bg);border-radius:var(--r);padding:16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px;">
+              <button class="voice-btn voice-idle" id="vbtn" onclick="toggleVoice()" title="Click to record">
+                <i class="fas fa-microphone" id="vicon"></i>
+              </button>
+              <div style="flex:1;">
+                <div style="font-weight:600;font-size:13px;" id="vstatus">Click to record answer</div>
+                <div style="font-size:12px;color:var(--muted);">Speak clearly</div>
+              </div>
+            </div>
+            <div id="live-transcript" style="font-size:12px;color:var(--primary);text-align:center;min-height:18px;font-style:italic;"></div>
+          </div>
+
+          <!-- Answer textarea -->
+          <div class="fg">
+            <label class="label">Your Answer</label>
+            <textarea class="textarea" id="ans" placeholder="Speak or type here..." style="min-height:100px;" oninput="updateWC()"></textarea>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;">
+              <span class="hint" style="font-size:11px;">STAR method: Situation → Task → Action → Result</span>
+              <span id="wc" style="font-size:11px;color:var(--muted);">0 words</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Camera & Proctoring -->
+        <div>
+          <div class="camera-feed">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas-proctoring"></canvas>
+          </div>
+          <div class="camera-status ${proctorStats.camera ? 'active' : 'error'}">
+            <i class="fas ${proctorStats.camera ? 'fa-camera' : 'fa-camera-slash'}"></i>
+            ${proctorStats.camera ? 'Monitored' : 'No camera'}
+          </div>
+          <div class="proctoring-panel">
+            <div style="font-size:11px;font-weight:700;margin-bottom:10px;text-transform:uppercase;color:var(--muted);">🛡️ Status</div>
+            <div id="proctoring-status"></div>
+          </div>
+        </div>
+      </div>
+
+      ${warnings > 0 ? `<div class="warning-banner show"><i class="fas fa-exclamation-triangle"></i> <strong>${warnings} warning(s)</strong>: Maintain focus, look at camera, speak clearly.</div>` : ''}
+
+      <!-- Navigation -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:8px;">
+          ${currentQ > 0 ? `<button class="btn btn-ghost btn-sm" onclick="prevQ()"><i class="fas fa-arrow-left"></i> Back</button>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="clearAns()"><i class="fas fa-eraser"></i> Clear</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="skipQ()">Skip</button>
+          <button class="btn btn-grad btn-sm" id="nextbtn" onclick="nextQ()">
+            ${currentQ === questions.length-1 ? 'Submit All ✓' : 'Next →'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  if (answers[currentQ]) {
+    document.getElementById('ans').value = answers[currentQ];
+    updateWC();
+  }
+
+  setupVoice();
+  updateProctorUI();
+  
+  if (currentQ === 0 && !videoStream) {
+    initCamera();
+    // Tab switch detection
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        tabSwitchCount++;
+        issueWarning(`Tab switched (${tabSwitchCount}x) during interview`, 'tab_switch');
+      }
+    });
+  }
+
+  setTimeout(() => speakQuestion(q), 500);
+}
+
+function updateWC() {
+  const txt = document.getElementById('ans')?.value || '';
+  const words = txt.trim().split(/\s+/).filter(Boolean).length;
+  const el = document.getElementById('wc');
+  if (el) {
+    el.textContent = `${words} words`;
+    el.style.color = words >= 50 ? 'var(--success)' : words >= 20 ? '#F57F17' : 'var(--muted)';
+  }
+}
+
+function speakQuestion(text) {
+  if (!synth) return;
+  synth.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.9;
+  utt.pitch = 1;
+  utt.lang = 'en-IN';
+  const voices = synth.getVoices();
+  const preferred = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
+    || voices.find(v => v.lang.startsWith('en'));
+  if (preferred) utt.voice = preferred;
+  synth.speak(utt);
+}
+
+function setupVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('vbtn');
+  const status = document.getElementById('vstatus');
+  if (!SR) {
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Voice not supported';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-IN';
+
+  let finalText = document.getElementById('ans')?.value || '';
+
+  recognition.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim = e.results[i][0].transcript;
+    }
+    const ans = document.getElementById('ans');
+    if (ans) ans.value = finalText + interim;
+    const lt = document.getElementById('live-transcript');
+    if (lt) lt.textContent = interim ? `"${interim}"` : '';
+    updateWC();
+    proctorStats.microphone = true;
+  };
+  recognition.onerror = e => { toast('Voice error: ' + e.error, 'warning'); stopRecording(); };
+  recognition.onend = () => { if (isRecording) stopRecording(); };
+}
+
+function toggleVoice() { isRecording ? stopRecording() : startRecording(); }
+
+function startRecording() {
+  if (!recognition) return;
+  synth.cancel();
+  isRecording = true;
+  recognition.start();
+  const btn = document.getElementById('vbtn'), icon = document.getElementById('vicon'), status = document.getElementById('vstatus');
+  if (btn) btn.className = 'voice-btn voice-rec';
+  if (icon) icon.className = 'fas fa-stop';
+  if (status) status.textContent = '🔴 Recording...';
+}
+
+function stopRecording() {
+  isRecording = false;
+  if (recognition) recognition.stop();
+  const btn = document.getElementById('vbtn'), icon = document.getElementById('vicon'), status = document.getElementById('vstatus'), lt = document.getElementById('live-transcript');
+  if (btn) btn.className = 'voice-btn voice-idle';
+  if (icon) icon.className = 'fas fa-microphone';
+  if (status) status.textContent = 'Click to record answer';
+  if (lt) lt.textContent = '';
+  proctorStats.microphone = false;
+}
+
+function saveCurrentAns() {
+  answers[currentQ] = document.getElementById('ans')?.value?.trim() || '';
+  if (isRecording) stopRecording();
+  synth.cancel();
+}
+
+function nextQ() { saveCurrentAns(); if (currentQ < questions.length - 1) { currentQ++; renderQuestion(); } else submitAll(); }
+function prevQ() { saveCurrentAns(); if (currentQ > 0) { currentQ--; renderQuestion(); } }
+function skipQ() { answers[currentQ] = ''; if (isRecording) stopRecording(); synth.cancel(); if (currentQ < questions.length - 1) { currentQ++; renderQuestion(); } else submitAll(); }
+function clearAns() { const a = document.getElementById('ans'); if (a) a.value = ''; updateWC(); }
+
+async function submitAll() {
+  if (isRecording) stopRecording();
+  synth.cancel();
+  if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+
+  document.getElementById('wrap').innerHTML = `
+    <div class="card" style="text-align:center;padding:60px;">
+      <div style="font-size:52px;margin-bottom:16px;">🤖</div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:24px;font-weight:700;margin-bottom:8px;">Evaluating Interview...</h2>
+      <p style="color:var(--muted);margin-bottom:24px;">Analyzing ${questions.length} answers + discipline metrics</p>
+      <div style="display:flex;justify-content:center;gap:8px;">
+        ${[0,200,400].map(d=>`<div style="width:10px;height:10px;border-radius:50%;background:var(--primary);animation:pulse ${1.4}s ${d}ms infinite;"></div>`).join('')}
+      </div>
+    </div>`;
+
+  const feedbacks = [];
+  let totalScore = 0, totalCommunication = 0, totalConfidence = 0;
+
+  for (let i = 0; i < questions.length; i++) {
+    const res = await API.post('interview.php', 'evaluate', {
+      question: questions[i],
+      answer: answers[i] || '',
+      job_id: jobId,
+      head_violations: headTurnWarnings,
+      tab_switches: tabSwitchCount,
+      warnings: warnings,
+      interview_type: 'proctored'
+    });
+    
+    if (res.success) {
+      feedbacks.push({ question: questions[i], answer: answers[i] || '', fb: res.data });
+      totalScore += res.data.score || 5;
+      totalCommunication += res.data.communication_score || 5;
+      totalConfidence += res.data.confidence_score || 5;
+    } else {
+      feedbacks.push({ question: questions[i], answer: answers[i] || '', fb: { rating:'Average', score:5, feedback:'Could not evaluate', suggestions:'Try again' } });
+      totalScore += 5;
+      totalCommunication += 5;
+      totalConfidence += 5;
+    }
+  }
+
+  interviewMetrics.answerQuality = Math.round((totalScore / questions.length) * 10);
+  interviewMetrics.communicationClarity = Math.round((totalCommunication / questions.length) * 10);
+  interviewMetrics.confidencePace = Math.round((totalConfidence / questions.length) * 10);
+  interviewMetrics.cameraDisc = Math.max(0, Math.round(interviewMetrics.cameraDisc));
+  interviewMetrics.completionConsistency = answers.filter(a => a && a.length > 10).length > 0 ? 85 : 50;
+
+  renderComprehensiveReport(feedbacks);
+}
+
+function renderComprehensiveReport(feedbacks) {
+  // Calculate weighted overall score
+  const weights = {
+    answerQuality: 0.40,
+    communicationClarity: 0.25,
+    confidencePace: 0.15,
+    cameraDisc: 0.10,
+    completionConsistency: 0.10
+  };
+
+  const overallScore = Math.round(
+    interviewMetrics.answerQuality * weights.answerQuality +
+    interviewMetrics.communicationClarity * weights.communicationClarity +
+    interviewMetrics.confidencePace * weights.confidencePace +
+    interviewMetrics.cameraDisc * weights.cameraDisc +
+    interviewMetrics.completionConsistency * weights.completionConsistency
+  );
+
+  const rColors = { Strong:'var(--success)', Good:'#2196F3', Average:'#F57F17', Weak:'var(--danger)', Poor:'#880E4F' };
+
+  let html = `
+    <div class="card fade-in" style="margin-bottom:24px;">
+      <div style="text-align:center;padding:24px 0;">
+        <div style="font-size:48px;margin-bottom:16px;">${overallScore >= 70 ? '🌟' : overallScore >= 50 ? '👍' : '💪'}</div>
+        <h2 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:4px;">Interview Complete</h2>
+        <p style="color:var(--muted);margin-bottom:20px;">Proctored by AI • ${feedbacks.length} Q&A • Real-time monitoring</p>
+        
+        ${renderScoreRing(overallScore, 140)}
+        
+        <div style="margin:20px 0;font-size:13px;color:var(--muted);">
+          <strong>Overall Mock Score: ${overallScore}</strong><br>
+          Interview Discipline: ${Math.max(0, Math.round(disciplineScore))} • Warnings: ${warnings}
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Metrics -->
+    <div class="card fade-in" style="margin-bottom:24px;">
+      <div class="card-header"><span class="card-title">📊 Comprehensive Interview Report</span></div>
+      
+      <div class="report-section">
+        ${renderMetricBar('Answer Quality', interviewMetrics.answerQuality, 40)}
+        ${renderMetricBar('Communication Clarity', interviewMetrics.communicationClarity, 25)}
+        ${renderMetricBar('Confidence & Pace', interviewMetrics.confidencePace, 15)}
+        ${renderMetricBar('Camera Discipline', interviewMetrics.cameraDisc, 10)}
+        ${renderMetricBar('Completion & Consistency', interviewMetrics.completionConsistency, 10)}
+      </div>
+
+      ${warnings >= 3 ? `<div class="discipline-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <div><strong>Low Interview Discipline:</strong> ${warnings} warnings recorded. Review: face detection, eye contact, tab switching, silence periods.</div>
+      </div>` : ''}
+
+      <div style="background:var(--primary-l);padding:12px;border-radius:8px;font-size:13px;color:var(--primary);margin-top:14px;">
+        <strong>💡 Next Steps:</strong> ${getNextSteps(overallScore, warnings)}
+      </div>
+    </div>
+
+    <!-- Individual Feedback -->
+    <div class="card fade-in">
+      <div class="card-header"><span class="card-title">📝 Question-by-Question Feedback</span></div>
+      ${feedbacks.map((item, i) => `
+        <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Q${i+1}</div>
+          <div class="iq" style="margin-bottom:10px;font-size:15px;">${item.question}</div>
+          ${item.answer ? `<div style="background:var(--bg);padding:10px;border-radius:8px;margin-bottom:10px;font-size:13px;border-left:3px solid var(--primary);color:var(--muted);">"${item.answer.substring(0, 120)}${item.answer.length > 120 ? '...' : ''}"</div>` : '<div style="color:var(--danger);font-size:12px;margin-bottom:10px;">📌 No answer</div>'}
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">${item.fb.rating === 'Strong' ? '🌟' : item.fb.rating === 'Good' ? '👍' : item.fb.rating === 'Average' ? '😐' : '⚠️'}</span>
+            <strong style="color:${rColors[item.fb.rating] || '#666'};">${item.fb.rating}</strong>
+            <span style="color:var(--muted);">– ${item.fb.score}/10</span>
+          </div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">${item.fb.feedback}</div>
+          ${item.fb.suggestions ? `<div style="background:var(--primary-l);padding:8px;border-radius:6px;font-size:12px;color:var(--primary);">💡 <strong>Tip:</strong> ${item.fb.suggestions.substring(0, 150)}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px;">
+      <a href="user-dashboard.html" class="btn btn-primary"><i class="fas fa-home"></i> Dashboard</a>
+      <a href="test.html" class="btn btn-outline"><i class="fas fa-clipboard-list"></i> Take Test</a>
+      <button class="btn btn-ghost" onclick="location.reload()"><i class="fas fa-redo"></i> Practice Again</button>
+    </div>
+  `;
+
+  document.getElementById('wrap').innerHTML = html;
+}
+
+function renderScoreRing(score, size = 120) {
+  const percent = Math.min(score, 100) / 100;
+  const circumference = 2 * Math.PI * (size / 2 - 10);
+  const strokeDashoffset = circumference * (1 - percent);
+  const color = score >= 70 ? 'var(--success)' : score >= 50 ? '#2196F3' : 'var(--danger)';
+  
+  return `<div style="position:relative;width:${size}px;height:${size}px;margin:0 auto;">
+    <svg width="${size}" height="${size}" style="transform:rotate(-90deg);">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2-10}" fill="none" stroke="var(--bg)" stroke-width="8"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2-10}" fill="none" stroke="${color}" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round"/>
+    </svg>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+      <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:${color};">${score}%</div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;">Overall</div>
+    </div>
+  </div>`;
+}
+
+function renderMetricBar(label, value, weight) {
+  const percentage = Math.min(value, 100);
+  const barColor = percentage >= 70 ? 'var(--success)' : percentage >= 50 ? '#2196F3' : 'var(--danger)';
+  return `
+    <div class="report-metric">
+      <div class="metric-label">
+        <span>${label}</span>
+        <span style="font-size:11px;color:var(--muted);font-weight:400;">${weight}%</span>
+      </div>
+      <div class="metric-bar">
+        <div class="metric-fill" style="width:${percentage}%;background:${barColor};"></div>
+      </div>
+      <div class="metric-score" style="color:${barColor};">${value}</div>
+    </div>
+  `;
+}
+
+function getNextSteps(score, warnings) {
+  if (warnings >= 3) return 'Maintain eye contact and reduce distractions during interviews.';
+  if (score >= 70) return 'Great performance! Apply for jobs matching your skill level.';
+  if (score >= 50) return 'Good foundation. Practice communication and STAR method.';
+  return 'Focus on answer structure and speaking confidence.';
+}
+
+init();
+</script>
+</body></html>

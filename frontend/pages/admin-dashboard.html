@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<nav class="nav">
+  <div class="wrap">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="nav-notif" id="admin-mob-toggle" style="display:none;border:none;background:none;font-size:20px;" onclick="toggleAdminSide()">
+        <i class="fas fa-bars"></i>
+      </button>
+      <a href="admin-dashboard.html" class="nav-brand">TrueOcc <span style="font-size:11px;background:var(--danger);color:white;padding:2px 8px;border-radius:999px;margin-left:4px;">Admin</span></a>
+    </div>
+    <div class="nav-right" style="margin-left:auto;">
+      <div class="nav-user" onclick="doLogout()">
+        <div class="avatar" style="background:var(--danger);">A</div>
+        <span class="nav-user-name" id="admin-name">Admin</span>
+        <i class="fas fa-sign-out-alt" style="font-size:11px;color:var(--muted);"></i>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<div class="admin-layout">
+  <div class="admin-side">
+    <div class="side-group">Main</div>
+    <button class="side-link active" onclick="showSec('dashboard',this)"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+    <div class="side-group">Management</div>
+    <button class="side-link" onclick="showSec('users',this)"><i class="fas fa-users"></i> Users</button>
+    <button class="side-link" onclick="showSec('employers',this)"><i class="fas fa-building"></i> Employers</button>
+    <button class="side-link" onclick="showSec('verifications',this)"><i class="fas fa-shield-alt"></i> Verifications</button>
+    <button class="side-link" onclick="showSec('jobs',this)"><i class="fas fa-briefcase"></i> Jobs</button>
+    <button class="side-link" onclick="showSec('applications',this)"><i class="fas fa-tasks"></i> Applications</button>
+    <button class="side-link" onclick="showSec('tests',this)"><i class="fas fa-clipboard-list"></i> Test Results</button>
+    <div class="side-group">Communication</div>
+    <button class="side-link" onclick="showSec('email',this)"><i class="fas fa-envelope"></i> Send Email</button>
+    <button class="side-link" onclick="showSec('emaillog',this)"><i class="fas fa-history"></i> Email Log</button>
+    <div class="side-group">Content</div>
+    <button class="side-link" onclick="showSec('books',this)"><i class="fas fa-book"></i> Books</button>
+    <div class="side-group">System</div>
+    <button class="side-link" onclick="doLogout()" style="color:rgba(255,100,100,0.7);"><i class="fas fa-sign-out-alt"></i> Logout</button>
+  </div>
+  <div class="admin-main" id="admin-main"></div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+async function init() {
+  const res = await API.get('auth.php','me');
+  if (!res.success || res.data.type !== 'admin') { window.location.href='admin-login.html'; return; }
+  document.getElementById('admin-name').textContent = res.data.user.name;
+  showSec('dashboard', document.querySelector('.admin-side .side-link'));
+}
+
+async function doLogout() { await API.get('auth.php','logout'); window.location.href='admin-login.html'; }
+function toggleAdminSide() { document.querySelector('.admin-side').classList.toggle('mob-active'); }
+
+function showSec(name, btn) {
+  document.querySelectorAll('.admin-side .side-link').forEach(b=>b.classList.remove('active'));
+  if (btn) {
+    btn.classList.add('active');
+    if (window.innerWidth <= 768) toggleAdminSide();
+  }
+  const renders = {dashboard:renderDash,users:renderUsers,employers:renderEmployers,verifications:renderVerifs,jobs:renderJobs,applications:renderApps,tests:renderTests,email:renderEmail,emaillog:renderEmailLog,books:renderBooks};
+  if (renders[name]) renders[name]();
+}
+
+async function renderDash() {
+  const res = await API.get('admin.php','stats');
+ const s = res.data || {};
+  document.getElementById('admin-main').innerHTML = `
+    <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:24px;">📊 Dashboard</h1>
+    <div class="g4" style="margin-bottom:28px;">
+      ${[
+        {icon:'fa-users',bg:'#E3F2FD',ic:'var(--primary)',val:s.total_users||0,lbl:'Total Users'},
+        {icon:'fa-building',bg:'#E8F5E9',ic:'var(--success)',val:s.total_employers||0,lbl:'Employers'},
+        {icon:'fa-briefcase',bg:'#FFF3E0',ic:'#E65100',val:s.active_jobs||0,lbl:'Active Jobs'},
+        {icon:'fa-paper-plane',bg:'#F3E5F5',ic:'#6A1B9A',val:s.total_applications||0,lbl:'Applications'},
+        {icon:'fa-clock',bg:'#FFF8E1',ic:'#F57F17',val:s.pending_verification||0,lbl:'Pending Verif.'},
+        {icon:'fa-check-circle',bg:'#E8F5E9',ic:'var(--success)',val:s.verified_employers||0,lbl:'Verified'},
+        {icon:'fa-clipboard-list',bg:'#E3F2FD',ic:'var(--primary)',val:s.total_tests||0,lbl:'Tests Taken'},
+        {icon:'fa-envelope',bg:'#FCE4EC',ic:'#AD1457',val:s.emails_sent||0,lbl:'Emails Sent'},
+      ].map(c=>`<div class="stat-card"><div class="stat-icon" style="background:${c.bg};"><i class="fas ${c.icon}" style="color:${c.ic};"></i></div><div><div class="stat-val" style="font-size:24px;">${c.val}</div><div class="stat-lbl">${c.lbl}</div></div></div>`).join('')}
+    </div>
+    ${s.pending_verification>0?`<div class="alert a-warning" style="margin-bottom:20px;"><i class="fas fa-exclamation-triangle"></i><div><strong>${s.pending_verification} verification(s) pending!</strong> <button onclick="showSec('verifications',document.querySelectorAll('.admin-side .side-link')[3])" style="background:none;border:none;color:var(--primary);font-weight:600;cursor:pointer;font-size:14px;">Review now →</button></div></div>`:''}
+    <div style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" onclick="sendRecs()"><i class="fas fa-paper-plane"></i> Send Job Recommendation Emails</button>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-header"><span class="card-title">Recent Users</span></div>
+        ${(s.recent_users||[]).map(u=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div class="avatar">${u.name[0]}</div>
+          <div style="flex:1;"><div style="font-weight:600;font-size:14px;">${u.name}</div><div style="font-size:12px;color:var(--muted);">${u.email}</div></div>
+          <span class="badge ${u.role==='seeker'?'b-blue':'b-green'}">${u.role}</span>
+        </div>`).join('')||'<div style="color:var(--muted);padding:12px 0;font-size:14px;">No users</div>'}
+      </div>
+      <div class="card"><div class="card-header"><span class="card-title">Recent Jobs</span></div>
+        ${(s.recent_jobs||[]).map(j=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+          <div class="co-logo" style="width:36px;height:36px;font-size:14px;">${j.company[0]}</div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${j.title}</div><div style="font-size:12px;color:var(--muted);">${j.company}</div></div>
+          <div style="font-size:12px;color:var(--muted);">${fmtDate(j.posted_at)}</div>
+        </div>`).join('')||'<div style="color:var(--muted);padding:12px 0;font-size:14px;">No jobs</div>'}
+      </div>
+    </div>`;
+}
+
+async function sendRecs() {
+  const res = await API.get('admin.php','send_job_recs');
+  if (res.success) toast(`Job recommendation emails sent to ${res.data.sent} seekers!`,'success');
+  else toast(res.message,'error');
+}
+
+async function renderUsers() {
+  const res = await API.get('admin.php','users');
+  const users = res.data?.users||[];
+  document.getElementById('admin-main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">Users (${users.length})</h1>
+      <div style="display:flex;gap:10px;">
+        <div class="search-wrap"><i class="fas fa-search" style="color:var(--muted);"></i><input class="search-inp" id="uq" placeholder="Search..." oninput="filterUsers()" style="width:200px;"></div>
+        <select id="urole" class="select" style="width:130px;" onchange="filterUsers()"><option value="">All Roles</option><option value="seeker">Seekers</option><option value="employer">Employers</option></select>
+      </div>
+    </div>
+    <div id="utbl">${renderUsersTbl(users)}</div>`;
+  window._users = users;
+}
+
+function filterUsers() {
+  const q=document.getElementById('uq').value.toLowerCase(), role=document.getElementById('urole').value;
+  const f=(window._users||[]).filter(u=>(!q||u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q))&&(!role||u.role===role));
+  document.getElementById('utbl').innerHTML = renderUsersTbl(f);
+}
+
+function renderUsersTbl(users) {
+  if (!users.length) return `<div class="card"><div class="empty"><div class="empty-icon">👤</div><div class="empty-title">No users</div></div></div>`;
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Premium</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
+    <tbody>${users.map((u,i)=>`<tr>
+      <td>${i+1}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:28px;height:28px;font-size:11px;">${u.name[0]}</div><strong>${u.name}</strong></div></td>
+      <td>${u.email}</td>
+      <td><span class="badge ${u.role==='seeker'?'b-blue':'b-green'}">${u.role}</span></td>
+      <td>${u.is_premium?'<span class="badge b-gold"><i class="fas fa-crown"></i> Yes</span>':'<span style="color:var(--muted);">—</span>'}</td>
+      <td>${u.is_active?'<span class="badge b-green">Active</span>':'<span class="badge b-red">Suspended</span>'}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="btn btn-outline btn-sm" onclick="editUser(${JSON.stringify(u).replace(/"/g,'&quot;')})"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleUser(${u.id})" title="${u.is_active?'Suspend':'Activate'}"><i class="fas fa-${u.is_active?'ban':'check'}"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="delUser(${u.id})"><i class="fas fa-trash"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="emailUser('${u.email}','${u.name}')" title="Send Email"><i class="fas fa-envelope"></i></button>
+      </div></td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function editUser(u) {
+  openModal(`<div class="modal-hd"><h2 class="modal-title">Edit User</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label class="label">Name</label><input type="text" id="eu-name" class="input" value="${u.name}"></div>
+    <div class="fg"><label class="label">Email</label><input type="email" id="eu-email" class="input" value="${u.email}"></div>
+    <div class="fg"><label class="label">Premium</label><select id="eu-prem" class="select"><option value="0" ${!u.is_premium?'selected':''}>No</option><option value="1" ${u.is_premium?'selected':''}>Yes</option></select></div>
+    <div class="fg"><label class="label">Status</label><select id="eu-active" class="select"><option value="1" ${u.is_active?'selected':''}>Active</option><option value="0" ${!u.is_active?'selected':''}>Suspended</option></select></div>
+    <div class="fg"><label class="label">New Password <span style="font-weight:400;color:var(--muted);">(leave blank to keep)</span></label><input type="password" id="eu-pwd" class="input" placeholder="••••••••"></div>
+    <div style="display:flex;gap:12px;"><button class="btn btn-primary" id="saveubtn" onclick="saveUser(${u.id})"><i class="fas fa-save"></i> Save</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+async function saveUser(id) {
+  const d={id,name:document.getElementById('eu-name').value,email:document.getElementById('eu-email').value,is_premium:document.getElementById('eu-prem').value,is_active:document.getElementById('eu-active').value};
+  const pwd=document.getElementById('eu-pwd').value; if(pwd) d.password=pwd;
+  const btn=document.getElementById('saveubtn'); setLoading(btn,true,'Saving...');
+  const res=await API.post('admin.php','user_update',d); setLoading(btn,false);
+  if(res.success){toast('User updated!','success');closeModal();renderUsers();}else toast(res.message,'error');
+}
+
+async function toggleUser(id) { await API.get('admin.php','user_toggle',{id}); toast('Status toggled.','success'); renderUsers(); }
+function delUser(id) { confirmDialog('Permanently delete this user and all their data?',async()=>{await API.get('admin.php','user_delete',{id});toast('Deleted.','success');renderUsers();},{title:'Delete User',yes:'Delete'}); }
+
+function emailUser(email, name) {
+  openModal(`<div class="modal-hd"><h2 class="modal-title">Send Email to ${name}</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label class="label">Subject</label><input type="text" id="ems" class="input" placeholder="Message subject..."></div>
+    <div class="fg"><label class="label">Message</label><textarea id="emm" class="textarea" placeholder="Your message..."></textarea></div>
+    <div style="display:flex;gap:12px;"><button class="btn btn-primary" id="emsbtn" onclick="sendEmailToUser('${email}','${name}')"><i class="fas fa-paper-plane"></i> Send</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+async function sendEmailToUser(email, name) {
+  const btn=document.getElementById('emsbtn'); setLoading(btn,true,'Sending...');
+  const res=await API.post('admin.php','send_email',{to_email:email,to_name:name,subject:document.getElementById('ems').value,message:document.getElementById('emm').value});
+  setLoading(btn,false);
+  if(res.success){toast('Email sent!','success');closeModal();}else toast(res.message,'error');
+}
+
+async function renderEmployers() {
+  const res = await API.get('admin.php','employers');
+  const emps = res.data?.employers||[];
+  document.getElementById('admin-main').innerHTML = `
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">Employers (${emps.length})</h1>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Company</th><th>Contact</th><th>Reg. ID</th><th>Verification</th><th>Industry</th><th>Actions</th></tr></thead>
+      <tbody>${emps.map((e,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><div style="font-weight:600;">${e.company_name||'—'}</div><div style="font-size:12px;color:var(--muted);">${e.user_name}</div></td>
+        <td>${e.user_email}</td>
+        <td><code style="font-size:12px;">${e.registration_id||'—'}</code></td>
+        <td>${statusBadge(e.verification_status||'none')}</td>
+        <td>${e.industry||'—'}</td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${e.verification_status==='pending'?`<button class="btn btn-success btn-sm" onclick="verifyEmp(${e.id},'verified')"><i class="fas fa-check"></i> Approve</button><button class="btn btn-danger btn-sm" onclick="rejectEmpPrompt(${e.id})"><i class="fas fa-times"></i> Reject</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="emailUser('${e.user_email}','${e.user_name}')" title="Email"><i class="fas fa-envelope"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="delEmp(${e.id})"><i class="fas fa-trash"></i></button>
+        </div></td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+async function renderVerifs() {
+  const res = await API.get('admin.php','employers',{status:'pending'});
+  const emps = res.data?.employers||[];
+  document.getElementById('admin-main').innerHTML = `
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">Pending Verifications (${emps.length})</h1>
+    ${!emps.length?`<div class="card"><div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All Clear!</div><div style="font-size:14px;color:var(--muted);">No pending verifications.</div></div></div>`
+    :emps.map(e=>`<div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h3 style="font-weight:700;font-size:16px;margin-bottom:4px;">${e.company_name}</h3>
+          <div style="font-size:13px;color:var(--muted);">Contact: ${e.user_name} (${e.user_email})</div>
+          <div style="font-size:13px;color:var(--muted);">Reg ID: ${e.registration_id||'—'} · Industry: ${e.industry||'—'}</div>
+          ${e.verification_doc?`<div style="margin-top:8px;"><a href="../../backend/uploads/docs/${e.verification_doc}" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-file"></i> View Document</a></div>`:`<div class="alert a-warning" style="margin-top:8px;font-size:12px;display:flex;"><i class="fas fa-exclamation-triangle"></i> No document uploaded</div>`}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-success" onclick="verifyEmp(${e.id},'verified')"><i class="fas fa-check"></i> Approve</button>
+          <button class="btn btn-danger" onclick="rejectEmpPrompt(${e.id})"><i class="fas fa-times"></i> Reject</button>
+        </div>
+      </div>
+    </div>`).join('')}`;
+}
+
+async function verifyEmp(id, status, note='') {
+  const res=await API.post('admin.php','employer_verify',{id,status,note});
+  if(res.success){toast(`Employer ${status}! Email sent.`,'success');renderVerifs();}else toast(res.message,'error');
+}
+function rejectEmpPrompt(id) {
+  openModal(`<div class="modal-hd"><h2 class="modal-title">Reject Verification</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label class="label">Reason *</label><textarea id="rjnote" class="textarea" placeholder="Explain the rejection reason..."></textarea></div>
+    <div style="display:flex;gap:12px;"><button class="btn btn-danger" onclick="doReject(${id})"><i class="fas fa-times"></i> Reject</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+async function doReject(id) {
+  const note=document.getElementById('rjnote').value.trim();
+  if(!note){toast('Reason required.','error');return;}
+  await verifyEmp(id,'rejected',note); closeModal();
+}
+function delEmp(id) { confirmDialog('Delete employer and all their jobs?',async()=>{await API.get('admin.php','employer_delete',{id});toast('Deleted.','success');renderEmployers();},{title:'Delete Employer',yes:'Delete'}); }
+
+async function renderJobs() {
+  const res=await API.get('admin.php','jobs');
+  const jobs=res.data?.jobs||[];
+  document.getElementById('admin-main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">All Jobs (${jobs.length})</h1>
+      <div class="search-wrap"><i class="fas fa-search" style="color:var(--muted);"></i><input class="search-inp" id="jq" placeholder="Search..." oninput="filterJobs()" style="width:220px;"></div>
+    </div>
+    <div id="jtbl">${renderJobsTbl(jobs)}</div>`;
+  window._jobs=jobs;
+}
+function filterJobs() {
+  const q=document.getElementById('jq').value.toLowerCase();
+  document.getElementById('jtbl').innerHTML=renderJobsTbl((window._jobs||[]).filter(j=>j.title.toLowerCase().includes(q)||j.company.toLowerCase().includes(q)));
+}
+function renderJobsTbl(jobs) {
+  if(!jobs.length) return `<div class="card"><div class="empty"><div class="empty-icon">💼</div><div class="empty-title">No jobs</div></div></div>`;
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>Title</th><th>Company</th><th>Location</th><th>Apps</th><th>Status</th><th>Posted</th><th>Actions</th></tr></thead>
+    <tbody>${jobs.map((j,i)=>`<tr>
+      <td>${i+1}</td><td><strong>${j.title}</strong></td><td>${j.company}</td><td>${j.location}</td>
+      <td><strong>${j.app_count||0}</strong></td>
+      <td>${j.is_active?'<span class="badge b-green">Active</span>':'<span class="badge b-gray">Off</span>'}</td>
+      <td>${fmtDate(j.posted_at)}</td>
+      <td><div style="display:flex;gap:4px;">
+        <button class="btn btn-ghost btn-sm" onclick="adminTogJob(${j.id})"><i class="fas fa-${j.is_active?'eye-slash':'eye'}"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="delJob(${j.id})"><i class="fas fa-trash"></i></button>
+      </div></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+async function adminTogJob(id){await API.get('admin.php','job_toggle',{id});toast('Toggled.','success');renderJobs();}
+function delJob(id){confirmDialog('Delete this job?',async()=>{await API.get('admin.php','job_delete',{id});toast('Deleted.','success');renderJobs();},{title:'Delete Job',yes:'Delete'});}
+
+async function renderApps() {
+  const res=await API.get('admin.php','applications');
+  const apps=res.data?.applications||[];
+  document.getElementById('admin-main').innerHTML=`
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">Applications (${apps.length})</h1>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Applicant</th><th>Job</th><th>Company</th><th>Match</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>${apps.map((a,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><div style="font-weight:600;">${a.applicant_name}</div><div style="font-size:12px;color:var(--muted);">${a.applicant_email}</div></td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.job_title}</td>
+        <td>${a.company}</td>
+        <td>${a.match_percentage>0?`<span class="badge ${a.match_percentage>=70?'b-green':a.match_percentage>=40?'b-yellow':'b-gray'}">${a.match_percentage}%</span>`:'—'}</td>
+        <td>${statusBadge(a.status)}</td>
+        <td>${fmtDate(a.applied_at)}</td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+async function renderTests() {
+  const res=await API.get('admin.php','test_results');
+  const r=res.data?.results||[];
+  document.getElementById('admin-main').innerHTML=`
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">Test Results (${r.length})</h1>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>User</th><th>Category</th><th>Score</th><th>Correct</th><th>Total</th><th>Time</th><th>Date</th></tr></thead>
+      <tbody>${r.map((t,i)=>`<tr>
+        <td>${i+1}</td>
+        <td><div style="font-weight:600;">${t.name}</div><div style="font-size:12px;color:var(--muted);">${t.email}</div></td>
+        <td><span class="badge b-blue">${t.category}</span></td>
+        <td><strong style="color:${t.score_percentage>=70?'var(--success)':t.score_percentage>=50?'#F57F17':'var(--danger)'}">${t.score_percentage}%</strong></td>
+        <td>${t.correct_answers}</td><td>${t.total_questions}</td>
+        <td>${Math.floor(t.time_taken/60)}m ${t.time_taken%60}s</td>
+        <td>${fmtDate(t.taken_at)}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderEmail() {
+  document.getElementById('admin-main').innerHTML=`
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">📧 Send Email</h1>
+    <div class="card" style="max-width:640px;">
+      <div class="alert a-info" style="margin-bottom:20px;"><i class="fas fa-info-circle"></i> Use "all_seekers" or "all_employers" as the To email to send to all users of that type.</div>
+      <div class="g2">
+        <div class="fg"><label class="label">To (Email) *</label><input type="text" id="aem-to" class="input" placeholder="user@email.com / all_seekers / all_employers"></div>
+        <div class="fg"><label class="label">Recipient Name</label><input type="text" id="aem-name" class="input" placeholder="John Doe"></div>
+      </div>
+      <div class="fg"><label class="label">Subject *</label><input type="text" id="aem-sub" class="input" placeholder="Subject..."></div>
+      <div class="fg"><label class="label">Message *</label><textarea id="aem-msg" class="textarea" placeholder="Your message..." style="min-height:160px;"></textarea></div>
+      <button class="btn btn-grad" id="aem-btn" onclick="doAdminEmail()"><i class="fas fa-paper-plane"></i> Send Email</button>
+    </div>`;
+}
+
+async function doAdminEmail() {
+  const to=document.getElementById('aem-to').value.trim(), sub=document.getElementById('aem-sub').value.trim(), msg=document.getElementById('aem-msg').value.trim();
+  if(!to||!sub||!msg){toast('Fill all fields.','error');return;}
+  const btn=document.getElementById('aem-btn'); setLoading(btn,true,'Sending...');
+  const res=await API.post('admin.php','send_email',{to_email:to,to_name:document.getElementById('aem-name').value.trim()||'User',subject:sub,message:msg});
+  setLoading(btn,false);
+  if(res.success){toast(`Sent to ${res.data.sent} recipient(s)!`,'success');document.getElementById('aem-msg').value='';}else toast(res.message,'error');
+}
+
+async function renderEmailLog() {
+  const res=await API.get('admin.php','email_log');
+  const logs=res.data?.logs||[];
+  document.getElementById('admin-main').innerHTML=`
+    <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:20px;">Email Log (${logs.length})</h1>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>To</th><th>Subject</th><th>Status</th><th>Sent At</th></tr></thead>
+      <tbody>${logs.map((l,i)=>`<tr>
+        <td>${i+1}</td><td>${l.to_email}</td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.subject}</td>
+        <td><span class="badge ${l.status==='sent'?'b-green':'b-red'}">${l.status}</span></td>
+        <td>${fmtDate(l.sent_at)}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function renderBooks() {
+  const res=await API.get('admin.php','books');
+  const books=res.data?.books||[];
+  document.getElementById('admin-main').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <h1 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;">Books (${books.length})</h1>
+      <button class="btn btn-grad" onclick="addBookModal()"><i class="fas fa-plus"></i> Add Book</button>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Title</th><th>Author</th><th>Category</th><th>Premium</th><th>Actions</th></tr></thead>
+      <tbody>${books.map((b,i)=>`<tr>
+        <td>${i+1}</td><td style="font-weight:600;">${b.title}</td><td>${b.author||'—'}</td>
+        <td>${b.category||'—'}</td>
+        <td>${b.is_premium?'<span class="badge b-gold"><i class="fas fa-crown"></i> Premium</span>':'<span class="badge b-green">Free</span>'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="delBook(${b.id})"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+function addBookModal() {
+  openModal(`<div class="modal-hd"><h2 class="modal-title">Add Book</h2><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label class="label">Title *</label><input type="text" id="bk-title" class="input"></div>
+    <div class="g2">
+      <div class="fg"><label class="label">Author</label><input type="text" id="bk-author" class="input"></div>
+      <div class="fg"><label class="label">Category</label><input type="text" id="bk-cat" class="input" placeholder="Programming"></div>
+    </div>
+    <div class="fg"><label class="label">Description</label><textarea id="bk-desc" class="textarea" style="min-height:80px;"></textarea></div>
+    <div class="fg"><label class="label">External URL (PDF link)</label><input type="url" id="bk-url" class="input" placeholder="https://..."></div>
+    <div class="fg"><label class="label">Skill Tags</label><input type="text" id="bk-tags" class="input" placeholder="coding, python, javascript"></div>
+    <div class="fg"><label class="label">Type</label><select id="bk-prem" class="select"><option value="0">Free</option><option value="1">Premium</option></select></div>
+    <div style="display:flex;gap:12px;"><button class="btn btn-primary" id="bk-btn" onclick="doAddBook()"><i class="fas fa-plus"></i> Add</button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button></div>`);
+}
+
+async function doAddBook() {
+  const btn=document.getElementById('bk-btn'); setLoading(btn,true,'Adding...');
+  const res=await API.post('admin.php','book_add',{title:document.getElementById('bk-title').value,author:document.getElementById('bk-author').value,description:document.getElementById('bk-desc').value,category:document.getElementById('bk-cat').value,skill_tags:document.getElementById('bk-tags').value,external_url:document.getElementById('bk-url').value,is_premium:document.getElementById('bk-prem').value});
+  setLoading(btn,false);
+  if(res.success){toast('Book added!','success');closeModal();renderBooks();}else toast(res.message,'error');
+}
+
+function delBook(id){confirmDialog('Delete this book?',async()=>{await API.get('admin.php','book_delete',{id});toast('Deleted.','success');renderBooks();},{title:'Delete Book',yes:'Delete'});}
+
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

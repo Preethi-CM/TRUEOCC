@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Find Jobs – True Occupation</title>
+<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- ═══ PWA START ═══ -->
+  <link rel="manifest" href="/trueocc/manifest.json">
+  <meta name="theme-color" content="#0A66C2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TrueOcc">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <!-- ═══ PWA END ═══ -->
+</head><body>
+<div id="nav"></div>
+<div style="background:var(--surface);border-bottom:1px solid var(--border);padding:24px 0;">
+  <div class="container">
+    <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;margin-bottom:14px;">Find Your Next Opportunity</h1>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <div class="search-wrap" style="flex:1;min-width:240px;"><i class="fas fa-search" style="color:var(--muted);"></i><input class="search-inp" id="q" placeholder="Job title, skills, or company..." oninput="debounce()"></div>
+      <div class="search-wrap" style="min-width:180px;"><i class="fas fa-map-marker-alt" style="color:var(--muted);"></i><input class="search-inp" id="loc" placeholder="Location..." oninput="debounce()"></div>
+      <button class="btn btn-grad" onclick="doSearch()"><i class="fas fa-search"></i> Search</button>
+    </div>
+  </div>
+</div>
+<div class="container page">
+  <div class="sidebar-left">
+    <div class="sticky-top">
+      <div class="card card-sm">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:14px;"><i class="fas fa-filter"></i> Filters</div>
+        <div class="fg">
+          <label class="label">Job Type</label>
+          ${[['ft','Full-time'],['pt','Part-time'],['ct','Contract'],['rm','Remote'],['in','Internship']].map(([id,lbl])=>`
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;font-size:14px;">
+              <input type="checkbox" id="${id}" checked style="accent-color:var(--primary);width:15px;height:15px;" onchange="doSearch()"> ${lbl}
+            </label>`).join('')}
+        </div>
+        <div class="fg"><label class="label">Experience</label>
+          <select id="level" class="select" onchange="doSearch()">
+            <option value="">All Levels</option>
+            <option value="Entry">Entry Level</option>
+            <option value="Mid">Mid Level</option>
+            <option value="Senior">Senior</option>
+            <option value="Lead">Lead</option>
+          </select>
+        </div>
+        <div class="fg"><label class="label">Sort By</label>
+          <select id="sort" class="select" onchange="renderResults()">
+            <option value="match">Best Match</option>
+            <option value="recent">Most Recent</option>
+            <option value="title">Title A-Z</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-full btn-sm" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
+      </div>
+      <div class="card card-sm" style="margin-top:16px;" id="skills-card"></div>
+    </div>
+    <div>
+      <div id="rec-sec">
+        <div class="section-title"><span>🔥</span> Recommended for You</div>
+        <div class="g2" id="rec-jobs" style="margin-bottom:28px;"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="section-title" style="margin-bottom:0;"><span>💼</span> All Jobs</div>
+        <div id="res-cnt" style="font-size:13px;color:var(--muted);font-weight:500;"></div>
+      </div>
+      <div id="jobs-list" class="g2"></div>
+      <div id="load-more" style="text-align:center;margin-top:24px;display:none;">
+        <button class="btn btn-outline" onclick="loadMore()"><i class="fas fa-chevron-down"></i> Load More</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toasts"></div>
+<script src="../js/main.js"></script>
+<script>
+let allJobs = [], resumeSkills = [], page = 1, total = 0, debTimer = null;
+
+async function init() {
+  try {
+    const d = await checkAuth('seeker');
+    if (d) {
+      document.getElementById('nav').innerHTML = buildNavbar(d.user, 'seeker');
+      loadNotifs();
+      if (d.resume?.skills) {
+        resumeSkills = d.resume.skills.split(',').map(s=>s.trim()).filter(Boolean);
+        document.getElementById('skills-card').innerHTML = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:10px;">Your Skills (${resumeSkills.length})</div><div>${resumeSkills.map(s=>`<span class="chip">${s}</span>`).join('')}</div>`;
+      } else {
+        document.getElementById('skills-card').innerHTML = `<div style="font-size:12px;color:var(--muted);">No resume skills. <a href="resume.html" style="color:var(--primary);">Add now →</a></div>`;
+      }
+      loadRecs();
+    }
+  } catch(e) {
+    document.getElementById('nav').innerHTML = `<nav class="nav"><div class="wrap"><a href="../index.html" class="nav-brand">True<span>Occ</span></a><div class="nav-right"><a href="login.html" class="btn btn-grad btn-sm">Sign In</a></div></div></nav>`;
+    document.getElementById('rec-sec').style.display = 'none';
+    document.getElementById('skills-card').style.display = 'none';
+  }
+  doSearch();
+}
+
+function debounce() { clearTimeout(debTimer); debTimer = setTimeout(doSearch, 400); }
+
+async function doSearch() {
+  page = 1;
+  const types = [];
+  [['ft','Full-time'],['pt','Part-time'],['ct','Contract'],['rm','Remote'],['in','Internship']]
+    .forEach(([id,val]) => { if (document.getElementById(id)?.checked) types.push(val); });
+
+  const res = await API.post('jobs.php','search',{
+    q: document.getElementById('q').value,
+    location: document.getElementById('loc').value,
+    type: types.join(','),
+    level: document.getElementById('level').value,
+    page
+  });
+  allJobs = res.data?.jobs || [];
+  total   = res.data?.total || 0;
+  renderResults();
+}
+
+function renderResults() {
+  const sort = document.getElementById('sort').value;
+  let sorted = [...allJobs];
+  if (sort === 'match') sorted.sort((a,b)=>(b.match_pct||0)-(a.match_pct||0));
+  else if (sort === 'title') sorted.sort((a,b)=>a.title.localeCompare(b.title));
+  document.getElementById('res-cnt').textContent = `${total} job${total!==1?'s':''} found`;
+  const el = document.getElementById('jobs-list');
+  if (!sorted.length) { el.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="empty-icon">🔍</div><div class="empty-title">No jobs found</div><div style="font-size:14px;color:var(--muted);">Try different keywords or clear filters.</div></div>`; }
+  else el.innerHTML = sorted.map(j=>jobCard(j)).join('');
+  document.getElementById('load-more').style.display = sorted.length < total ? 'block' : 'none';
+}
+
+async function loadRecs() {
+  const res = await API.get('jobs.php','recommended');
+  const jobs = res.data?.jobs || [];
+  if (!jobs.length) { document.getElementById('rec-sec').style.display='none'; return; }
+  document.getElementById('rec-jobs').innerHTML = jobs.map(j=>jobCard(j)).join('');
+}
+
+async function loadMore() {
+  page++;
+  const res = await API.post('jobs.php','search',{ q: document.getElementById('q').value, location: document.getElementById('loc').value, page });
+  const more = res.data?.jobs || [];
+  allJobs = [...allJobs, ...more];
+  document.getElementById('jobs-list').innerHTML += more.map(j=>jobCard(j)).join('');
+  if (allJobs.length >= total) document.getElementById('load-more').style.display = 'none';
+}
+
+function resetFilters() {
+  document.getElementById('q').value=''; document.getElementById('loc').value=''; document.getElementById('level').value='';
+  ['ft','pt','ct','rm','in'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=true; });
+  doSearch();
+}
+init();
+</script>
+  <script src="/trueocc/frontend/js/pwa.js"></script>
+</body></html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offline – True Occupation</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:#F3F2EF;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#fff;border-radius:20px;padding:48px 40px;max-width:460px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.10)}
+  .icon{width:80px;height:80px;background:#EBF5FF;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px}
+  h1{font-size:24px;font-weight:700;color:#191919;margin-bottom:10px}
+  p{font-size:15px;color:#666;line-height:1.6;margin-bottom:28px}
+  .btn{display:inline-block;background:#0A66C2;color:#fff;padding:12px 28px;border-radius:25px;font-size:15px;font-weight:600;text-decoration:none;border:none;cursor:pointer;transition:background .2s}
+  .btn:hover{background:#004182}
+  .status{margin-top:20px;font-size:13px;color:#999}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ccc;margin-right:6px}
+  .dot.online{background:#22c55e;animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">📡</div>
+  <h1>You're Offline</h1>
+  <p>It looks like you've lost your internet connection. Some features require connectivity to work, but we've saved some pages for you to browse.</p>
+  <button class="btn" onclick="tryReconnect()">🔄 Try Again</button>
+  <div class="status" id="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-txt">Checking connection...</span>
+  </div>
+</div>
+
+<script>
+function updateStatus() {
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('status-txt');
+  if (navigator.onLine) {
+    dot.className = 'dot online';
+    txt.textContent = 'Connection restored! Redirecting...';
+    setTimeout(() => window.location.href = '/trueocc/index.html', 1500);
+  } else {
+    dot.className = 'dot';
+    txt.textContent = 'No connection detected';
+  }
+}
+
+function tryReconnect() {
+  updateStatus();
+  if (navigator.onLine) window.location.reload();
+}
+
+window.addEventListener('online',  updateStatus);
+window.addEventListener('offline', updateStatus);
+updateStatus();
+</script>
+</body>
+</html>
