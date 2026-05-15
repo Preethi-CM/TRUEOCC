@@ -12,6 +12,12 @@
   "categories": ["business", "education", "productivity"],
   "icons": [
     {
+      "src": "/trueocc/frontend/icons/app-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/trueocc/frontend/icons/icon-72x72.svg",
       "sizes": "72x72",
       "type": "image/svg+xml",

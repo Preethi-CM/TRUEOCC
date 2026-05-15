@@ -24,7 +24,8 @@ body{background:var(--surface);}
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="TrueOcc">
-  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/icon-192x192.svg">
+  <link rel="apple-touch-icon" href="/trueocc/frontend/icons/app-icon.png">
+  <link rel="icon" type="image/png" href="/trueocc/frontend/icons/app-icon.png">
   <!-- ═══ PWA END ═══ -->
 </head><body>
 <nav class="nav">
@@ -60,18 +61,36 @@ body{background:var(--surface);}
   <div class="container">
     <h2 style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;text-align:center;margin-bottom:40px;">Everything You Need to Land Your Dream Job</h2>
     <div class="feats-grid">
-      ${[
-        {bg:'#E3F2FD',ic:'#1565C0',icon:'fa-brain',t:'AI Job Matching',d:'Resume skills matched against jobs with percentage scores. Get email alerts for new matches.'},
-        {bg:'#E8F5E9',ic:'#2E7D32',icon:'fa-file-alt',t:'Smart Resume Builder',d:'Build or upload PDF resume. Skills extracted for AI matching and readiness scoring.'},
-        {bg:'#F3E5F5',ic:'#6A1B9A',icon:'fa-microphone',t:'Voice Mock Interview',d:'Speak your answers via microphone. Gemini AI evaluates with ratings, scores, and coaching.'},
-        {bg:'#FFF3E0',ic:'#E65100',icon:'fa-clipboard-list',t:'4-Category Aptitude Test',d:'Numerical, Logical, Verbal & Coding. Timed tests with detailed answer reviews.'},
-        {bg:'#E0F7FA',ic:'#00695C',icon:'fa-envelope',t:'Email Notifications',d:'Automated emails: application received, status updates, and personalized job recommendations.'},
-        {bg:'#FCE4EC',ic:'#AD1457',icon:'fa-shield-alt',t:'Verified Employers',d:'Admin-verified companies with document uploads. Employers can add custom interview questions.'},
-      ].map(f=>`<div class="feat">
-        <div class="feat-icon" style="background:${f.bg};"><i class="fas ${f.icon}" style="color:${f.ic};"></i></div>
-        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">${f.t}</div>
-        <p style="color:var(--muted);font-size:14px;line-height:1.6;">${f.d}</p>
-      </div>`).join('')}
+      <div class="feat">
+        <div class="feat-icon" style="background:#E3F2FD;"><i class="fas fa-brain" style="color:#1565C0;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">AI Job Matching</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Resume skills matched against jobs with percentage scores. Get email alerts for new matches.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#E8F5E9;"><i class="fas fa-file-alt" style="color:#2E7D32;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Smart Resume Builder</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Build or upload PDF resume. Skills extracted for AI matching and readiness scoring.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#F3E5F5;"><i class="fas fa-microphone" style="color:#6A1B9A;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Voice Mock Interview</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Speak your answers via microphone. Gemini AI evaluates with ratings, scores, and coaching.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#FFF3E0;"><i class="fas fa-clipboard-list" style="color:#E65100;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">4-Category Aptitude Test</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Numerical, Logical, Verbal & Coding. Timed tests with detailed answer reviews.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#E0F7FA;"><i class="fas fa-envelope" style="color:#00695C;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Email Notifications</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Automated emails: application received, status updates, and personalized job recommendations.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:#FCE4EC;"><i class="fas fa-shield-alt" style="color:#AD1457;"></i></div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Verified Employers</div>
+        <p style="color:var(--muted);font-size:14px;line-height:1.6;">Admin-verified companies with document uploads. Employers can add custom interview questions.</p>
+      </div>
     </div>
   </div>
 </section>
